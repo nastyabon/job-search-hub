@@ -108,7 +108,7 @@ General:
 | The user says | Do |
 |---|---|
 | "Messaged Sam today, follow up next Monday" | Contact Sam: append the date to `contacted`, set `last_contact`, `next_date`, `next_action` (default "follow up if no reply"), `status: messaged` unless already `replied`/`intro-made`/`reference-yes`. No follow-up date given → default +7 days and say so. Unknown person → add a contact (ask the relation if not obvious). |
-| "Sam replied" | `status: replied`, `last_contact` = today, ask what the next step is and when. |
+| "Sam replied" | `status: replied`, `last_contact` = today, and clear `next_date` and `next_action` (the old follow-up no longer applies). Then ask what the next step is and when. If they give one ("we're talking Thursday"), set `next_date` and `next_action` from it. If there's none, or they don't say, leave both empty: never invent a date. Confirm in one line ("Sam: replied 22 Oct, no next step yet"). |
 | "Sam introduced me to Priya at Acme" | Sam → `intro-made`. Add Priya (`to-message`, company Acme, relation from context). Company Acme `researching` → `to-contact`. |
 | "Sam will be a reference" | `status: reference-yes`. |
 | "Priya is at Figma now" / "where does Priya work now?" | Set the contact's `company` (and `title` if known); keep `relation`. Add a note line: "Now at X (per <source>, YYYY-MM-DD)." If asked to check, one web search for that person only (and their saved LinkedIn link, once); never sweep the whole list. |
@@ -120,10 +120,20 @@ General:
 | "Did 2h of prep" | Tick 2 boxes under `## Interview prep`; add `- [x] 1h` lines if there aren't enough. Half hours: `- [x] 0.5h`. |
 | "Applied to Acme" | Only through career-ops: `cd career-ops && node set-status.mjs <company or #> Applied` (add `--on YYYY-MM-DD` if not today). No tracker row yet → evaluate it first (`/career-ops {JD or URL}` in a Claude session opened in `career-ops/`), or add it without an evaluation (next row). Then make sure `application-meta.yml` has the row's exact company + role, and ask for `channel` and `contact` if missing. Set the outreach company `status: applied`. |
 | "Applied to Acme last Friday, here's the link" (no tracker row, no evaluation wanted) | Hub action `track` (`hub/server/actions.mjs` → `trackApplication`): reserve a number, headed TSV in `career-ops/batch/tracker-additions/` (status `Evaluated`, score `N/A`, no report), `merge-tracker.mjs`, then `set-status.mjs --row N Applied --on <date>`. Keep the job link as the posting URL. Then ask for `channel` and `contact`. |
+| "Evaluate this job: <link>" (or a pasted job description) | Run career-ops' full evaluation from this folder (§6a). |
 | "Got an interview at Acme" / "Acme rejected me" | `node set-status.mjs <company or #> Interview` / `Rejected`. Never edit `applications.md` by hand. |
 | After any career-ops evaluation | Add the row to `application-meta.yml` (company + role exactly as in the tracker) and ask: channel and who the human is. |
 | "I also worked at Spotify" / "I'm only looking in Berlin now" | Update `hub-data/profile.yml` (`former_companies`, `location_rules`, …) and, if it affects scanning or evaluation, offer the matching change in career-ops' user layer (`config/profile.yml`, `portals.yml`). |
 | "Start a new week" | §7. |
+
+### 6a. Evaluating a job
+
+The user never has to leave this folder. When they ask to evaluate a job (a link, or a pasted description):
+
+1. Say first, in one line: "This is career-ops' full evaluation: a fit report and a tailored CV. It takes several minutes and uses a fair share of your Claude plan."
+2. Read `career-ops/.claude/skills/career-ops/SKILL.md` and follow its **auto-pipeline** route, with `PROJECT_ROOT` = `career-ops/` (its "Project Root Resolution" section). Every career-ops path is relative to `career-ops/`; run every script as `cd career-ops && node …`. career-ops' own rules apply in full (its `AGENTS.md`): never invent facts, the LinkedIn job-description guard, the employer check for aggregator links, liveness checks. Skip its update check and any first-run onboarding prompts unless `node doctor.mjs --json` says onboarding is needed (then send the user to SETUP.md instead).
+3. The result: a report in `career-ops/reports/`, the tracker row added as **Evaluated** (through `batch/tracker-additions/` and `merge-tracker.mjs`, never a hand edit), and a tailored CV PDF in `career-ops/output/`. Never mark it Applied: that's the user's call.
+4. Then add the row to `hub-data/application-meta.yml` (company + role exactly as in the tracker), and reply with: the score and a 2–3 line verdict (fit, main gaps, posting legitimacy), where the report and PDF are, and two questions: how they're applying (referral / hiring-manager / recruiter-inbound / cold) and who the person is.
 
 ## 7. Weekly reset ("start a new week")
 

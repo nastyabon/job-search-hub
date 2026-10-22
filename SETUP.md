@@ -48,6 +48,7 @@ career-ops has its own onboarding. Follow `career-ops/AGENTS.md` → "First Run 
   **Then read it back. Don't skip this; it's how they learn to trust the tool.** Show a short summary of what you captured (each job with title, company and dates; education; skills; any numbers you kept) and ask: "Here's what I captured from your CV. What's wrong or missing?" Fix what they say before moving on.
 - **Profile and scanner:** ask for name, email, city and time zone, the roles they want, salary range and currency, and where they'll work (city, country, remote, relocation). Write both files with `node onboard-write.mjs` as AGENTS.md describes.
 - Then the deeper questions from its Step 5 (what makes them good, deal-breakers, best achievement).
+- **Fill in `career-ops/modes/_profile.md`** from their CV and answers: their target roles as the archetypes, how to frame them, comp targets and location policy. The shipped template targets AI and engineering roles, so until it's theirs every evaluation scores against the wrong targets. Don't skip it; `node doctor.mjs --json` lists it under `unpersonalized` until it's done.
 - Run `node remember-cli.mjs claude` and `node doctor.mjs` in `career-ops/`. Fix what fails (for example `npx playwright install chromium` if the PDF check fails).
 
 ## 3. Their hub profile
