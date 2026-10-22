@@ -78,6 +78,8 @@ When setup is done, the hub opens in your browser at **127.0.0.1:5199**. That ad
 
 **Claude never sends anything for you.** It writes drafts; you copy them and send them yourself.
 
+**To get a newer version**, tell Claude *"update my job hub"*. It downloads the latest version and keeps all your data.
+
 ## Optional: find who you know at each company
 
 LinkedIn lets you download your list of connections. With it, the hub shows who you know at each company you're targeting, which is often the fastest way to a referral.

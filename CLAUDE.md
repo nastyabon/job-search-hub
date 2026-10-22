@@ -12,6 +12,15 @@ If any of these is true, follow `SETUP.md` before anything else, then come back 
 
 When the user says "open my job hub" (or similar) and setup is done: start it with `npm run hub` from the project root as a background command, wait until http://127.0.0.1:5199 answers, and tell them it's open in their browser. If it's already running, just say so and give the link.
 
+When the user says "update my job hub" (or similar). Updates never touch their data (`hub-data/`, `career-ops/` are gitignored):
+
+1. `git status --porcelain`. If any tracked file was changed locally, say which in plain words and ask before going on. Never discard their changes.
+2. Note the current commit, then `git pull --ff-only`. If it says "Already up to date", tell them and stop.
+3. `node setup.mjs` (installs new packages and adds any new starter files without overwriting theirs).
+4. Summarise what's new in 2–4 plain lines from `git log --oneline <old>..HEAD`.
+5. If the hub is running, stop it and start it again so the new version loads.
+6. Then check career-ops too: `node update-system.mjs check` in `career-ops/`, and follow its own update steps if one is available (ask first, as its AGENTS.md says).
+
 ## 1. What this is
 
 One page that shows:

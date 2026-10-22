@@ -15,7 +15,17 @@ Start by saying, in your own words: "I'll set up your Job Search Hub. First I'll
 
 career-ops has its own onboarding. Follow `career-ops/AGENTS.md` → "First Run — Onboarding", running its commands inside `career-ops/`:
 
-- **CV:** ask them to drag their CV (PDF or Word) into this chat, or paste it, or share their LinkedIn profile text. Write `career-ops/cv.md` from it in the shape career-ops expects. Read it back briefly and ask if anything is wrong or missing. Never add anything that isn't in what they gave you.
+- **CV:** ask them to drag their CV into this chat. Say a PDF works best. These steps replace career-ops' own CV options (don't offer to read a LinkedIn URL):
+  - **PDF** (including LinkedIn's "Save to PDF" from their profile): read it directly.
+  - **Word (.docx / .doc)**: convert it with macOS' built-in `textutil -convert txt -stdout "<file>"` and read the text. If that fails, ask them to use File → Save as PDF in Word and drag the PDF in.
+  - **Pasted text**: use it as is.
+  - **Pages or Google Docs**: ask them to export a PDF first.
+  - **A LinkedIn profile link**: don't open it (LinkedIn shows a login wall). Ask right away for the PDF instead: "On your LinkedIn profile, click **More → Save to PDF** and drag that file in here."
+  - **A scanned CV or image**: read it, and check the read-back below with extra care.
+
+  Write `career-ops/cv.md` in the shape career-ops expects. Never add anything that isn't in what they gave you.
+
+  **Then read it back. Don't skip this; it's how they learn to trust the tool.** Show a short summary of what you captured (each job with title, company and dates; education; skills; any numbers you kept) and ask: "Here's what I captured from your CV. What's wrong or missing?" Fix what they say before moving on.
 - **Profile and scanner:** ask for name, email, city and time zone, the roles they want, salary range and currency, and where they'll work (city, country, remote, relocation). Write both files with `node onboard-write.mjs` as AGENTS.md describes.
 - Then the deeper questions from its Step 5 (what makes them good, deal-breakers, best achievement).
 - Run `node remember-cli.mjs claude` and `node doctor.mjs` in `career-ops/`. Fix what fails (for example `npx playwright install chromium` if the PDF check fails).
