@@ -1228,6 +1228,18 @@ function useScan() {
 
 const TIER_SHORT = TIER_NAMES;
 
+// No file for this week yet (CLAUDE.md §7): one tap sends "start a new week" to Claude, which
+// sums up last week and sets up this week's checkboxes.
+function NewWeekNotice() {
+  const { open } = usePanel();
+  return (
+    <div className="notice new-week" role="status">
+      <span>New week: say “start a new week”.</span>
+      <button type="button" className="btn btn-sm btn-primary" onClick={() => open({ global: true, send: 'Start a new week' })}>Start a new week</button>
+    </div>
+  );
+}
+
 function Home({ data }) {
   const apps = data.applications;
   const noPerson = [...(apps.ok ? apps.rows.filter(ACTIVE_APP) : []), ...apps.untracked].filter((r) => !r.contact);
@@ -1238,6 +1250,7 @@ function Home({ data }) {
         <p className="eyebrow">{fmtDay(data.today)} · Week {data.week.id.slice(-2)} · {plural(Math.max(0, daysBetween(data.today, data.week.end)), 'day')} left</p>
         <Headline plan={plan} />
       </header>
+      {!data.week.fileExists && <NewWeekNotice />}
       <div className="home-grid">
         <div className="home-main">
           <TodayList data={data} plan={plan} />
