@@ -66,6 +66,12 @@ function hubData() {
       const watchers = WATCH_DIRS.filter((dir) => fs.existsSync(dir)).map((dir) => fs.watch(dir, { recursive: true }, (_e, f) => { if (!String(f ?? '').startsWith('logos')) notify(); }));
       server.httpServer?.on('close', () => watchers.forEach((w) => w.close()));
 
+      // Lets scripts/start.mjs tell this hub (this folder) from any other program on the port.
+      server.middlewares.use('/api/whoami', (_req, res) => {
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ app: 'job-search-hub', root: path.resolve(import.meta.dirname, '..') }));
+      });
+
       server.middlewares.use('/api/data', async (_req, res) => {
         res.setHeader('Content-Type', 'application/json');
         res.setHeader('Cache-Control', 'no-store');

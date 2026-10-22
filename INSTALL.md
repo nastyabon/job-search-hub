@@ -35,7 +35,7 @@ Node.js is a free program the hub runs on. You install it once and never have to
 2. Choose a folder to work in, for example **Documents**.
 3. Copy this sentence, paste it into the chat and press Enter:
 
-   > Set up the Job Search Hub from https://github.com/nastyabon/job-search-hub in this folder. Read its SETUP.md and walk me through it.
+   > Set up the Job Search Hub from https://github.com/nastyabon/job-search-hub in this folder (if it's already here, use that copy). Read its SETUP.md and walk me through it.
 
 4. Claude will ask for permission before it runs things on your computer. Allow it. It's installing the hub and the job-search tool it uses (career-ops).
 5. Claude also installs the hub's own copy of Claude Code and signs it in to your account. **A Claude page opens in your browser: check it's your account and approve it**, then go back to the chat and tell Claude it's done. This is what lets the hub use Claude; it runs on the same plan.
@@ -61,7 +61,7 @@ You can skip a question, or stop and come back later: everything is saved as you
 
 ## Step 5. Your hub opens
 
-When setup is done, the hub opens in your browser at **127.0.0.1:5199**. That address only works on your computer.
+When setup is done, the hub opens in your browser, usually at **127.0.0.1:5199** (if another program already uses that address, Claude picks the next free one and tells you). The address only works on your computer.
 
 Three things to try first:
 

@@ -4,6 +4,15 @@ The person you're setting up probably doesn't use a terminal. Do every technical
 
 Start by saying, in your own words: "I'll set up your Job Search Hub. First I'll install a few things (a couple of minutes), then I'll ask you about your job search. Everything stays on this computer. You can skip any question or stop at any point and continue later."
 
+## Already installed?
+
+Before downloading anything, look for an existing hub: this folder may already be one (it has `SETUP.md` and `hub/`), or have a `job-search-hub/` folder in it. If so, never download it again and never create a second copy inside it. Work in that folder:
+
+- `hub-data/profile.yml` has a `name` and `hub-data/setup-progress.md` is all ticked (or missing, with `career-ops/cv.md` present) → setup is done. Say "Your Job Search Hub is already set up." and open it (CLAUDE.md §0, "open my job hub").
+- Otherwise → resume (below). Their data is never overwritten: `setup.mjs` only adds missing files.
+
+If the user is in the wrong place (for example Documents, with the hub in `Documents/job-search-hub`), tell them that next time they should open Claude in the **job-search-hub** folder itself.
+
 ## Stopping and resuming
 
 - **Skipping:** everything except the CV can be skipped or left for later ("I'll add companies later", "skip LinkedIn"). The CV is needed because job matching and CV tailoring run on it. Leave skipped fields blank; never fill them with guesses.
@@ -73,7 +82,7 @@ If they'd rather do this later, skip it. The hub works without it.
 
 ## 7. Open it
 
-Start the hub (`npm run hub` from the project root, in the background) and wait until http://127.0.0.1:5199 answers; it opens in their browser. Then tell them:
+Start the hub with `npm start` from the project root, in the background. It opens in their browser by itself; read the address it prints (usually http://127.0.0.1:5199) and give them the link. Then tell them:
 
 - **What they're looking at:** Today (who to follow up with), This week (progress), Applications, Outreach.
 - **Three things to try**, exactly these (the install guide lists the same three):

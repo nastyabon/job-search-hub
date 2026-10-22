@@ -11,7 +11,7 @@ If any of these is true, follow `SETUP.md` before anything else, then come back 
 - `career-ops/cv.md` is missing,
 - `hub-data/setup-progress.md` has an unticked step, or the user says "continue the setup".
 
-When the user says "open my job hub" (or similar) and setup is done: start it with `npm run hub` from the project root as a background command, wait until http://127.0.0.1:5199 answers, and tell them it's open in their browser. If it's already running, just say so and give the link.
+When the user says "open my job hub" (or similar) and setup is done: run `npm start` from the project root as a background command. It opens the hub if it's already running; otherwise it starts it on port 5199, or on the next free port (5299, 5399, 5499) if another program has 5199, and the browser opens by itself. Read the address it prints and give them that link.
 
 When the user says "update my job hub" (or similar). Updates never touch their data (`hub-data/`, `career-ops/` are gitignored):
 
@@ -19,7 +19,7 @@ When the user says "update my job hub" (or similar). Updates never touch their d
 2. Note the current commit, then `git pull --ff-only`. If it says "Already up to date", tell them and stop.
 3. `node setup.mjs` (installs new packages and adds any new starter files without overwriting theirs).
 4. Summarise what's new in 2–4 plain lines from `git log --oneline <old>..HEAD`.
-5. If the hub is running, stop it and start it again so the new version loads.
+5. If the hub is running, stop it and run `npm start` again so the new version loads.
 6. Then check career-ops too: `node update-system.mjs check` in `career-ops/`, and follow its own update steps if one is available (ask first, as its AGENTS.md says).
 
 ## 1. What this is
@@ -77,7 +77,7 @@ job-search-hub/
 
 ## 5. Running the hub
 
-- `npm run hub` from the project root → http://127.0.0.1:5199 (bound to localhost only). On a Mac, double-clicking `Start Job Hub.command` does the same.
+- `npm start` from the project root (`hub/scripts/start.mjs`) → http://127.0.0.1:5199, bound to localhost only. If this hub is already running it just opens it (`/api/whoami` tells it apart from other programs); if another program has 5199 it uses 5299, 5399 or 5499. On a Mac, double-clicking `Start Job Hub.command` does the same. `npm run hub` starts the server directly on 5199 (or `HUB_PORT`).
 - `npm test` runs the parser and date tests. `node hub/scripts/week-progress.mjs [YYYY-MM-DD]` prints one week's counts.
 - The page reloads itself when anything in `hub-data/` or `career-ops/data/` changes. Code: `hub/server/data.mjs` (all reads, read-only), `hub/server/profile.mjs` (reads profile.yml), `hub/server/actions.mjs` (the only writes), `hub/vite.config.js` (`/api/data`, `/api/events`, `POST /api/action/*`), `hub/src/App.jsx`.
 - What the page itself can change (same-origin POSTs only):

@@ -24,7 +24,7 @@ git clone https://github.com/nastyabon/job-search-hub
 cd job-search-hub
 node setup.mjs     # Node 22.13+, git, and Claude Code (signed in) required
 claude             # then say: "walk me through SETUP.md"
-npm run hub        # http://127.0.0.1:5199
+npm start          # http://127.0.0.1:5199 (or the next free port)
 ```
 
 Requirements: a paid Claude plan, the Claude Code command (`claude`, installed and signed in; the hub calls `claude -p` for chat, Find, scoring openings, CV tailoring and reading LinkedIn pastes; the desktop app alone doesn't provide it, so setup installs it), Node.js 22.13 or newer, and git.
