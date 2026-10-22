@@ -21,7 +21,7 @@ const RELATIONS = new Set(['hiring-manager', 'recruiter', 'other']);
 const searching = new Map(); // company → the search in flight (a second request waits for it)
 
 const outreach = () => { try { return parseDocument(fs.readFileSync(OUTREACH, 'utf8')).toJS() ?? {}; } catch { return {}; } };
-const relationFor = (title = '') => (/recruit|talent|sourc/i.test(title) ? 'recruiter'
+export const relationFor = (title = '') => (/recruit|talent|sourc/i.test(title) ? 'recruiter'
   : /\b(head|director|vp|lead|manager|principal)\b/i.test(title) && /design|product|ux/i.test(title) ? 'hiring-manager' : 'other');
 
 // Connections whose current company is this one (the export has no past companies).

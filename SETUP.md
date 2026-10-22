@@ -77,7 +77,7 @@ Show the defaults in `hub-data/routine.yml` in plain words ("5–8 messages to e
 
 Explain: "LinkedIn lets you download a list of your connections. With it, I can show you who you know at each company you're targeting. That's often the fastest way to a referral."
 
-How they get it: on LinkedIn, **Me → Settings & Privacy → Data privacy → Get a copy of your data → Connections → Request archive**. LinkedIn emails a link, usually within 10–30 minutes. When they have the file, ask them to drag `Connections.csv` into the chat; save it as `career-ops/data/Connections.csv`. Run `node linkedin-join.mjs --summary` in career-ops and add the matches at target companies to `outreach.yml` as `to-message` contacts (ex-colleagues as `ex-<key>`).
+How they get it: on LinkedIn, **Me → Settings & Privacy → Data privacy → Get a copy of your data → Connections → Request archive**. LinkedIn emails a link, usually within 10–30 minutes. When they have the file, ask them to drag `Connections.csv` into the chat; follow CLAUDE.md §6b (save it, then `node hub/scripts/connections-match.mjs --write` adds who they know at their target companies).
 
 If they'd rather do this later, skip it. The hub works without it.
 
