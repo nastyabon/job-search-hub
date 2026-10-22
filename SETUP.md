@@ -96,7 +96,7 @@ If they'd rather do this later, skip it. The hub works without it.
 Start the hub with `npm start` from the project root, in the background. It opens in their browser by itself; read the address it prints (usually http://127.0.0.1:5199) and give them the link. Then tell them:
 
 - **What they're looking at:** Today (who to follow up with), This week (progress), Applications, Outreach.
-- **Three things to try**, exactly these (the install guide lists the same three):
+- **Three things to try**, exactly these (the setup guide lists the same three):
   1. In **Today**, click **Find** next to your top company. Claude looks for the right person to contact there.
   2. Click a company to open its panel, and ask Claude something about it in the chat.
   3. On the **Openings** page, press **Scan now**. It checks your target companies' job boards and scores new roles against your CV.
