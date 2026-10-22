@@ -7,6 +7,7 @@ import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { parseDocument, Scalar, parse as parseYaml, stringify as toYaml } from 'yaml';
 import { HUB_DATA, CAREER_OPS, LIVENESS_FILE, ymd, reportUrl, noteSlug, isoWeek } from './data.mjs';
+import { claudeEnv } from './claude-bin.mjs';
 
 const OUTREACH = path.join(HUB_DATA, 'outreach.yml');
 const norm = (s) => String(s ?? '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
@@ -172,7 +173,8 @@ export function addNote({ company, text, today = ymd(new Date()) }) {
 }
 
 const run = (args, timeout) => new Promise((resolve, reject) => {
-  execFile(process.execPath, args, { cwd: CAREER_OPS, timeout, maxBuffer: 4 << 20 }, (err, stdout, stderr) => {
+  // claudeEnv: rank-pipeline.mjs runs `claude` itself, which may live outside PATH (~/.local/bin).
+  execFile(process.execPath, args, { cwd: CAREER_OPS, timeout, maxBuffer: 4 << 20, env: claudeEnv() }, (err, stdout, stderr) => {
     if (err && err.code !== 0 && !stdout) reject(new Error((stderr || err.message).trim().split('\n').slice(-3).join(' ')));
     else resolve({ ok: !err, output: `${stdout}${stderr}`.trim() });
   });

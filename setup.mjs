@@ -6,6 +6,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execSync, spawnSync } from 'node:child_process';
+import { claudeStatus } from './hub/server/claude-bin.mjs';
 
 const ROOT = import.meta.dirname;
 const CAREER_OPS = path.join(ROOT, 'career-ops');
@@ -31,8 +32,11 @@ if (major < 22 || (major === 22 && minor < 13)) fail(`Node.js ${process.versions
 ok(`Node.js ${process.versions.node}`);
 if (!has('git')) fail('git is missing. On a Mac, run `xcode-select --install` and click Install in the window that opens, then run this again.');
 ok('git');
-if (has('claude')) ok('Claude Code');
-else todo.push('The `claude` command was not found. The hub uses it for chat, CV tailoring and reading LinkedIn pastes. Install Claude Code (https://claude.com/claude-code) and sign in.');
+// The hub's built-in Claude needs the `claude` command. The desktop app doesn't provide it.
+const claude = claudeStatus();
+if (!claude.installed) todo.push('CLAUDE_CODE_MISSING: the `claude` command isn\'t installed. The hub uses it for chat, Find, scoring openings, CV tailoring and LinkedIn pastes. Install it with: curl -fsSL https://claude.ai/install.sh | bash');
+else if (!claude.loggedIn) todo.push('CLAUDE_CODE_SIGNED_OUT: the `claude` command is installed but not signed in. Sign in with: claude auth login --claudeai');
+else ok(`Claude Code command (${claude.bin}), signed in`);
 
 // 2. career-ops: a plain clone, never modified, so its own updater keeps working.
 if (fs.existsSync(path.join(CAREER_OPS, 'package.json'))) ok('career-ops is already here');

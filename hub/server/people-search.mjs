@@ -12,6 +12,7 @@ import { parseDocument } from 'yaml';
 import { HUB_DATA, ymd } from './data.mjs';
 import { editOutreach } from './actions.mjs';
 import { readConnections, key } from './alumni.mjs';
+import { claudeBin, friendlyClaudeError, NO_CLAUDE } from './claude-bin.mjs';
 import { loadProfile, isWarm } from './profile.mjs';
 
 const OUTREACH = path.join(HUB_DATA, 'outreach.yml');
@@ -27,7 +28,9 @@ Return only JSON, no prose: {"people":[{"name":"","title":"","company":"","degre
 // One `claude -p` call with no tools: the prompt, then the pasted page as data. Returns parsed JSON.
 export function readPaste(prompt, text, model = 'haiku') {
   return new Promise((resolve, reject) => {
-    const child = spawn('claude', ['-p', `${prompt}\n\n<page>\n${text}\n</page>`, '--output-format', 'json', '--model', model,
+    const bin = claudeBin();
+    if (!bin) return reject(new Error(NO_CLAUDE));
+    const child = spawn(bin, ['-p', `${prompt}\n\n<page>\n${text}\n</page>`, '--output-format', 'json', '--model', model,
       '--tools', '', '--strict-mcp-config', '--setting-sources', ''], { stdio: ['ignore', 'pipe', 'pipe'] });
     let out = '';
     let err = '';
@@ -37,7 +40,7 @@ export function readPaste(prompt, text, model = 'haiku') {
     child.on('error', reject);
     child.on('close', (code) => {
       clearTimeout(timer);
-      if (code !== 0) return reject(new Error(`Claude couldn't read the page (${err.trim().split('\n').pop() || `exit ${code}`})`));
+      if (code !== 0) return reject(new Error(friendlyClaudeError(`${out}\n${err}`) || `Claude couldn't read the page (${err.trim().split('\n').pop() || `exit ${code}`})`));
       try {
         const reply = JSON.parse(out).result ?? '';
         const json = reply.slice(reply.indexOf('{'), reply.lastIndexOf('}') + 1);

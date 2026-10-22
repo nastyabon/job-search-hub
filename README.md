@@ -27,7 +27,7 @@ claude             # then say: "walk me through SETUP.md"
 npm run hub        # http://127.0.0.1:5199
 ```
 
-Requirements: a paid Claude plan (the hub calls `claude -p` for chat, CV tailoring and reading LinkedIn pastes), Node.js 22.13 or newer, and git.
+Requirements: a paid Claude plan, the Claude Code command (`claude`, installed and signed in; the hub calls `claude -p` for chat, Find, scoring openings, CV tailoring and reading LinkedIn pastes; the desktop app alone doesn't provide it, so setup installs it), Node.js 22.13 or newer, and git.
 
 ## How it's organised
 

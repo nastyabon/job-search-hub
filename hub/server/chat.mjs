@@ -20,6 +20,7 @@ import { spawn } from 'node:child_process';
 import { load as loadYaml } from 'js-yaml';
 import { HUB_DATA, CAREER_OPS } from './data.mjs';
 import { loadProfile, todayLine } from './profile.mjs';
+import { claudeBin, friendlyClaudeError, NO_CLAUDE } from './claude-bin.mjs';
 
 const ROOT = path.resolve(HUB_DATA, '..');
 const CHATS = path.join(HUB_DATA, 'chats');
@@ -220,7 +221,9 @@ export async function runChat({ thread, message, context }, emit) {
 
   try {
     const result = await new Promise((resolve, reject) => {
-      const child = spawn('claude', args, { cwd: cv ? CAREER_OPS : ROOT, stdio: ['ignore', 'pipe', 'pipe'] });
+      const bin = claudeBin();
+      if (!bin) throw new Error(NO_CLAUDE);
+      const child = spawn(bin, args, { cwd: cv ? CAREER_OPS : ROOT, stdio: ['ignore', 'pipe', 'pipe'] });
       const timer = setTimeout(() => child.kill('SIGTERM'), (cv ? 25 : 10) * 60_000);
       let buf = '';
       let stderr = '';
@@ -250,7 +253,7 @@ export async function runChat({ thread, message, context }, emit) {
       child.on('close', (code) => {
         clearTimeout(timer);
         if (final) resolve({ ...final, sessionId });
-        else reject(new Error((stderr.trim().split('\n').at(-1)) || `claude exited with ${code}`));
+        else reject(new Error(friendlyClaudeError(`${buf}\n${stderr}`) || (stderr.trim().split('\n').at(-1)) || `claude exited with ${code}`));
       });
     });
 
@@ -278,7 +281,7 @@ export async function runChat({ thread, message, context }, emit) {
       undo,
       note,
       files: cv ? outputFiles(result.result) : [],
-      error: result.is_error ? 'Claude reported an error' : '',
+      error: result.is_error ? (friendlyClaudeError(result.result) || 'Claude reported an error') : '',
     };
     data.messages.push(reply);
     writeThread(thread, data);

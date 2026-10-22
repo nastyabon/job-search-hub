@@ -17,6 +17,10 @@ Start by saying, in your own words: "I'll set up your Job Search Hub. First I'll
 2. Run `node setup.mjs` from the project root. It checks git, downloads career-ops, copies the starter files into `hub-data/` and installs packages. It's safe to run again.
    - If git is missing on a Mac, run `xcode-select --install` and say: "A window just opened asking to install developer tools. Click **Install** and wait for it to finish (a few minutes), then tell me." Then run setup again.
    - If anything else fails, read the error, fix what you can, and explain the rest in one plain sentence.
+3. **Claude for the hub.** The hub has Claude built in (its chat, Find, scoring openings, CV tailoring, reading LinkedIn pastes). It runs the `claude` command, which the Claude desktop app doesn't provide. Look at what setup printed under "Still to do":
+   - `CLAUDE_CODE_MISSING`: say "The hub needs its own copy of Claude Code. I'll install it; it uses your same Claude plan." Run Anthropic's installer: `curl -fsSL https://claude.ai/install.sh | bash`.
+   - `CLAUDE_CODE_SIGNED_OUT` (or right after installing): say "Now I'll sign the hub in to your Claude account. A Claude page will open in your browser: check it's your account and approve it, then come back and tell me." Run `~/.local/bin/claude auth login --claudeai` (or `claude auth login --claudeai` if `claude` is on PATH) as a background command, since it waits for the browser. When they say it's done, confirm with `claude auth status --text`.
+   - Run `node setup.mjs` again. It should show "Claude Code command …, signed in".
 
 ## 2. Their CV and job targets (career-ops)
 
@@ -72,7 +76,11 @@ If they'd rather do this later, skip it. The hub works without it.
 Start the hub (`npm run hub` from the project root, in the background) and wait until http://127.0.0.1:5199 answers; it opens in their browser. Then tell them:
 
 - **What they're looking at:** Today (who to follow up with), This week (progress), Applications, Outreach.
-- **Three things to try:** click a company to open its panel and chat; type "Messaged Sam today" in the ⌘K bar; press **Scan now** on the Openings page.
+- **Three things to try**, exactly these (the install guide lists the same three):
+  1. In **Today**, click **Find** next to your top company. Claude looks for the right person to contact there.
+  2. Click a company to open its panel, and ask Claude something about it in the chat.
+  3. On the **Openings** page, press **Scan now**. It checks your target companies' job boards and scores new roles against your CV.
+  If they skipped target companies, Today is empty: make (1) "Tell Claude a company you'd love to work at" instead.
 - **How to come back later:** open Claude in this folder and say "open my job hub". On a Mac they can also double-click **Start Job Hub** in the folder.
 - **How to update it:** just tell Claude what happened, in plain words.
 - **Nothing is ever sent for them.** Claude drafts; they send.

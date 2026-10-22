@@ -1,11 +1,11 @@
 # How to install the Job Search Hub
 
-No coding needed. You'll install two free programs, then Claude sets up the rest by chatting with you. It takes about 30 minutes, most of it answering questions about your job search.
+No coding needed. You'll install two free programs, then Claude sets up the rest by chatting with you. Plan for about an hour, most of it answering questions about your job search.
 
 **What you need**
 
 - A Mac (Windows should work too, but hasn't been tested yet)
-- A paid Claude plan (Pro or higher). The hub uses Claude for its chat, CV tailoring and job matching, so every person uses their own plan.
+- A paid Claude plan (Pro or higher). The hub has Claude built in for its chat, finding people, CV tailoring and job matching. It runs on your own plan.
 - Your CV, as a PDF or Word file
 
 **Your data stays on your computer.** The hub isn't a website. It runs only on your machine, and nothing about you or your contacts is uploaded anywhere, apart from what you ask Claude in a chat.
@@ -38,6 +38,7 @@ Node.js is a free program the hub runs on. You install it once and never have to
    > Set up the Job Search Hub from https://github.com/nastyabon/job-search-hub in this folder. Read its SETUP.md and walk me through it.
 
 4. Claude will ask for permission before it runs things on your computer. Allow it. It's installing the hub and the job-search tool it uses (career-ops).
+5. Claude also installs the hub's own copy of Claude Code and signs it in to your account. **A Claude page opens in your browser: check it's your account and approve it**, then go back to the chat and tell Claude it's done. This is what lets the hub use Claude; it runs on the same plan.
 
 <!-- screenshot: Claude Code with the sentence pasted -->
 
@@ -61,6 +62,14 @@ You can skip a question, or stop and come back later: everything is saved as you
 ## Step 5. Your hub opens
 
 When setup is done, the hub opens in your browser at **127.0.0.1:5199**. That address only works on your computer.
+
+Three things to try first:
+
+1. In **Today**, click **Find** next to your top company. Claude looks for the right person to contact there.
+2. Click a company to open its panel, and ask Claude something about it in the chat.
+3. On the **Openings** page, press **Scan now**. It checks your target companies' job boards and scores new roles against your CV.
+
+The hub keeps running while Claude is open. If you quit Claude, say *"open my job hub"* next time.
 
 <!-- screenshot: the hub's home page -->
 
