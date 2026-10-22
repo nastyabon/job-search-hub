@@ -1499,7 +1499,7 @@ const chatMark = (name) => {
 };
 // A company chat shows the company's logo (served from hub-data/logos); anything else, or a
 // company without one, shows the two-letter mark.
-// Favicons come with different amounts of empty margin (ElevenLabs is tiny, Rive fills its box).
+// Favicons come with different amounts of empty margin (some brands' icons are tiny, others fill their box).
 // Crop each to the square around its visible pixels so they all read at the same size. Icons the
 // browser loads from another site can't be read back (canvas security), so those stay as they are.
 const trimmed = new Map();
