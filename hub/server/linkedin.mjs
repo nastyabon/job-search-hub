@@ -31,7 +31,9 @@ export const linkedinKind = (key) => (key.startsWith('jobs/view/') ? 'job'
   : /^jobs\/(search|search-results|collections)\b/.test(key) ? 'job search'
   : key.startsWith('in/') ? 'profile' : 'page');
 
-// Every LinkedIn link in a piece of text (what the user typed or pasted).
+// Every LinkedIn link in a piece of text (what the user typed or pasted). A job search link with a
+// job selected (currentJobId=<id>) also counts as that job's own link: the ID is in the link the user
+// sent, not taken from the page. Other jobs listed on the search page never are.
 export function linkedinKeysIn(text) {
   const keys = new Set();
   // With or without https:// ("linkedin.com/in/x" pasted from the address bar counts too).
@@ -39,6 +41,8 @@ export function linkedinKeysIn(text) {
     const raw = m[0].replace(/[.,;:!?]+$/, '');
     const k = linkedinKey(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`);
     if (k) keys.add(k);
+    const selected = k.startsWith('jobs/') && k.match(/[?&]currentJobId=(\d{6,})(?:&|$)/)?.[1];
+    if (selected) keys.add(`jobs/view/${selected}`);
   }
   return [...keys];
 }

@@ -22,7 +22,13 @@ test('a job search keys on its query, without tracking parameters', () => {
 });
 
 test('links in a message are found with or without https://', () => {
-  assert.deepEqual(linkedinKeysIn(`what about ${SEARCH} and linkedin.com/in/sam-rivera.`), [linkedinKey(SEARCH), 'in/sam-rivera']);
+  assert.deepEqual(linkedinKeysIn(`what about ${SEARCH} and linkedin.com/in/sam-rivera.`), [linkedinKey(SEARCH), 'jobs/view/4012345678', 'in/sam-rivera']);
+});
+
+test('a search link opens its selected job too, and no other', () => {
+  assert.deepEqual(linkedinKeysIn(SEARCH), [linkedinKey(SEARCH), 'jobs/view/4012345678']);
+  assert.deepEqual(linkedinKeysIn('https://www.linkedin.com/jobs/search/?keywords=Designer'), ['jobs/search?keywords=Designer']);
+  assert.deepEqual(linkedinKeysIn('https://www.linkedin.com/feed/?currentJobId=4012345678'), ['feed?currentJobId=4012345678']);
 });
 
 // The hook itself: only links the user sent, once each; lnkd.in never.
@@ -34,10 +40,11 @@ function hook(state, url) {
 }
 
 test('the guard opens a sent search page once and refuses jobs listed on it', () => {
-  const sent = { allowed: [linkedinKey(SEARCH)], fetched: {}, last: 0 };
+  const sent = { allowed: linkedinKeysIn(SEARCH), fetched: {}, last: 0 };
   const first = hook(sent, SEARCH);
   assert.equal(first.denied, false);
   assert.equal(hook(first.state, SEARCH).denied, true);
+  assert.equal(hook(sent, 'https://nl.linkedin.com/jobs/view/designer-at-acme-4012345678/').denied, false);
   assert.equal(hook(sent, 'https://www.linkedin.com/jobs/view/4099990001/').denied, true);
   assert.equal(hook(sent, 'https://www.linkedin.com/jobs/search-results/?keywords=Designer').denied, true);
   assert.equal(hook(sent, 'https://lnkd.in/abc').denied, true);
