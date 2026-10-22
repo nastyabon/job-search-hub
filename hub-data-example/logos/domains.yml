@@ -1,0 +1,3 @@
+# Company → website, for logos in the hub (icons are fetched once from the company's own site and
+# cached in this folder; no logo service is used). Add a line for any company that shows letters.
+{}

@@ -1,0 +1,10 @@
+{
+  "name": "job-search-hub",
+  "private": true,
+  "description": "A local dashboard for your job search, run by Claude. Runs on your computer only; never deploy it.",
+  "scripts": {
+    "setup": "node setup.mjs",
+    "hub": "npm --prefix hub run hub",
+    "test": "npm --prefix hub test"
+  }
+}

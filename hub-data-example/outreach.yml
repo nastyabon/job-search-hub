@@ -1,0 +1,15 @@
+# Outreach: target companies and people to contact. Private (hub-data/ never goes to git).
+# Claude edits this from your plain-language updates ("Messaged Sam today", "Add Acme, tier 1").
+#
+# companies[].tier:      1, 2 or 3 (names in profile.yml `tiers`)
+# companies[].lead_with: a key from profile.yml `lead_with`
+# companies[].status:    researching | to-contact | contacted | in-conversation | applied | parked
+# contacts[].relation:   ex-<company> (from profile.yml former_companies) | hiring-manager | recruiter | other
+# contacts[].status:     to-message | messaged | replied | intro-made | reference-yes | cold
+# contacts[].contacted:  every date you sent this person a message (weekly counts use it)
+# contacts[].title, why, source: optional; set on people found by research ("Suggested" on the dashboard)
+# Dates are YYYY-MM-DD.
+
+companies: []
+
+contacts: []

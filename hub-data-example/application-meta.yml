@@ -1,0 +1,4 @@
+# Extra fields per application, keyed by company + role exactly as in career-ops/data/applications.md.
+# channel: referral | hiring-manager | recruiter-inbound | cold
+# contact: the person attached to this application, if any
+[]

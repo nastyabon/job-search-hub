@@ -1,0 +1,7 @@
+# Your private data: never commit (back it up locally instead)
+hub-data/
+career-ops/
+hub/node_modules/
+hub/dist/
+node_modules/
+.DS_Store

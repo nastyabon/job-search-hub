@@ -1,0 +1,38 @@
+# Who you are. The hub reads this for everything personal: your name, the roles you want,
+# where you'll work, your past employers (your warm network) and the projects you lead with.
+# Claude fills it in during setup. Change anything by asking Claude ("I also worked at Spotify").
+
+name: ""                 # your full name, as it shows on LinkedIn
+sign_off: ""             # how you sign messages, e.g. "Thanks, Sam"
+role: ""                 # the role you're looking for, e.g. Senior Product Designer
+focus: ""                # one line on the kind of work, e.g. "design systems for B2B SaaS"
+base: ""                 # where you live, e.g. "Lisbon, Portugal"
+timezone: ""             # e.g. Europe/Lisbon (blank = this computer's time zone)
+linkedin_premium: false  # Premium allows 300-character connection notes (200 without)
+
+# Where you'll work, in plain words. Used to judge job posts and openings.
+location_rules: ""       # e.g. "Lisbon on-site or hybrid, or remote within EU time zones. No relocation."
+
+# Past employers. Each one becomes a warm relation (ex-<key>): people you worked with there.
+former_companies: []
+#  - key: acme              # short id, lowercase
+#    label: Acme            # how it shows on screen ("Ex-Acme")
+#    linkedin: Acme Inc.    # the name in LinkedIn's "Past company" filter
+#    match: "acme"          # pattern for "still works there" (any company name containing it)
+
+# The projects or stories you lead with when you contact a company (outreach.yml `lead_with`).
+lead_with: []
+#  - key: checkout-redesign
+#    label: Checkout redesign
+
+# What your outreach tiers mean.
+tiers:
+  1: Dream companies
+  2: Strong fit
+  3: Local companies
+
+# Hard rules for anything Claude writes about you (CVs, cover letters, messages).
+# Only facts that are in career-ops/cv.md are ever used; add stricter rules here.
+truth_rules: []
+#  - Never say "10+ years"; it's 8.
+#  - Only use the metrics that are in cv.md.

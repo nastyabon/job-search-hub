@@ -1,0 +1,141 @@
+# Job Search Hub
+
+A local dashboard for one person's job search, run through Claude Code. It reads **career-ops** (job discovery, fit scoring, CV tailoring, application tracking) and adds what career-ops doesn't cover: network outreach and a weekly routine.
+
+## 0. First run
+
+If any of these is true, follow `SETUP.md` before anything else, then come back here:
+
+- `career-ops/` or `hub/node_modules/` is missing,
+- `hub-data/profile.yml` is missing or has no `name`,
+- `career-ops/cv.md` is missing.
+
+When the user says "open my job hub" (or similar) and setup is done: start it with `npm run hub` from the project root as a background command, wait until http://127.0.0.1:5199 answers, and tell them it's open in their browser. If it's already running, just say so and give the link.
+
+## 1. What this is
+
+One page that shows:
+
+1. **Today**: overdue and due-today follow-ups.
+2. **This week**: progress against the weekly targets in `hub-data/routine.yml`.
+3. **Applications**: every role from career-ops' tracker, its status, and whether a person is attached to it.
+4. **Outreach**: target companies by tier, and the people to contact at each.
+
+The user updates it by talking to Claude in plain language (§6), in this terminal or in the hub's side-panel chat.
+
+## 2. Hard rules (never break)
+
+- **Local only.** The hub runs on `127.0.0.1`. Never deploy it, never make it public, never change `host`. The data includes real people's names and private notes.
+- **Data stays out of git.** `hub-data/` and `career-ops/` are gitignored. Never force-add them.
+- **Don't modify career-ops code.** Keep it a clean clone so its updater works. The hub reads career-ops files and only writes to them through career-ops commands. Personal settings go in career-ops' user layer (`cv.md`, `config/profile.yml`, `modes/_profile.md`, `portals.yml`), as its own `AGENTS.md` says.
+- **Nothing gets sent automatically.** No auto-submitting applications, no auto-sending messages, no LinkedIn scraping (it breaks LinkedIn's terms and risks the account). Opening a single job posting the user sends (`linkedin.com/jobs/view/…`) is fine, once per link. Opening a single profile (`linkedin.com/in/…`) is fine when the user sends the link, it is already saved on a contact in `hub-data/`, or a web search for a person the user asked about turns it up; once per link, to check someone's current title or company. When the user sends several profile links at once, open each of them (only those), one after another. Never LinkedIn search, feeds, messages or "people also viewed", never follow links from one profile to the next, never bulk-collect profiles, never log in or work around a login wall. Drafts only. The user sends.
+- **Truthfulness for anything written about the user** (CVs, cover letters, messages):
+  - Only facts that are in `career-ops/cv.md` (and career-ops' other user-authored files). Never invent a metric, a title, a project or a skill. Reword, never inflate.
+  - Follow every line of `truth_rules` in `hub-data/profile.yml`. Those are the user's own hard rules.
+  - If a claim isn't backed by a file, ask. If they don't add it, leave it out.
+
+## 3. Folder layout
+
+```
+job-search-hub/
+├── CLAUDE.md               ← this brief
+├── SETUP.md                ← first-run steps (Claude follows these)
+├── setup.mjs               ← installs everything; safe to run again
+├── Start Job Hub.command   ← double-click launcher (Mac)
+├── career-ops/             ← untouched clone of career-ops (gitignored)
+│   ├── cv.md               ← master CV
+│   ├── config/profile.yml
+│   ├── portals.yml         ← companies to scan
+│   └── data/applications.md ← application tracker (career-ops owns this)
+├── hub-data/               ← the user's own data (gitignored; starts as a copy of hub-data-example/)
+│   ├── profile.yml         ← who they are, location rules, past employers, truth rules
+│   ├── outreach.yml        ← companies + people to contact
+│   ├── routine.yml         ← weekly targets
+│   ├── application-meta.yml ← channel + contact per application
+│   ├── weeks/              ← one file per week: manual checkboxes
+│   ├── notes/              ← one file per company
+│   └── voice-samples.md    ← messages they actually sent (for drafting in their voice)
+└── hub/                    ← the dashboard app
+```
+
+## 4. Data model
+
+- `profile.yml`: `name`, `sign_off`, `role`, `focus`, `base`, `timezone`, `linkedin_premium`, `location_rules`, `former_companies` (each becomes the warm relation `ex-<key>`), `lead_with` (projects they lead with), `tiers` (what tier 1/2/3 mean), `truth_rules`.
+- `outreach.yml`: `companies` (`name`, `tier`, `base`, `lead_with`, `why`, `status`, `notes`) and `contacts` (`name`, `company`, `relation`, `channel`, `contacted` list, `last_contact`, `next_action`, `next_date`, `status`, optional `title`, `why`, `source`, `intro_via`). The comments at the top of the file list the allowed values.
+- `routine.yml`: `weekly_targets` (warm messages, hiring-manager messages, applications, LinkedIn posts, interview prep hours), each a number or `{min, max}`.
+- `application-meta.yml`: one row per application, keyed by `company` + `role` exactly as in the career-ops tracker, with `channel` (referral | hiring-manager | recruiter-inbound | cold) and `contact`.
+
+## 5. Running the hub
+
+- `npm run hub` from the project root → http://127.0.0.1:5199 (bound to localhost only). On a Mac, double-clicking `Start Job Hub.command` does the same.
+- `npm test` runs the parser and date tests. `node hub/scripts/week-progress.mjs [YYYY-MM-DD]` prints one week's counts.
+- The page reloads itself when anything in `hub-data/` or `career-ops/data/` changes. Code: `hub/server/data.mjs` (all reads, read-only), `hub/server/profile.mjs` (reads profile.yml), `hub/server/actions.mjs` (the only writes), `hub/vite.config.js` (`/api/data`, `/api/events`, `POST /api/action/*`), `hub/src/App.jsx`.
+- What the page itself can change (same-origin POSTs only):
+  - Tick a contact or follow-up → `contacted` gets today, `last_contact` today, `next_date` +7, `next_action` "follow up if no reply", `status: messaged` (unless already further along); the company moves `researching`/`to-contact` → `contacted`.
+  - Application status dropdown → `node set-status.mjs --row N <Status>` in career-ops (never a hand edit).
+  - "Scan now" → `node scan.mjs`, then `node rank-pipeline.mjs --limit 20` in career-ops (quick 0–5 fit score against `cv.md`; uses `claude -p`). Results show under New openings (from `data/pipeline.md` `## Pending`), best score first. Scan filters live in `career-ops/portals.yml`. Companies with no public job board need the web-search scan (`/career-ops scan` in a Claude session opened in `career-ops/`).
+- Hiding by hand: × on a Needs-attention row, or Shelve on an opening → `hub-data/hidden.yml` (`{key, label, reason, at}`; Undo in the toast). When the user says "shelve X" in chat, add the entry there.
+- Removing a person: × on any person row ("won't help") → `status: cold`, `next_date`/`next_action` cleared, a dated note. The contact stays in `outreach.yml` (so a LinkedIn re-import skips them). Same as "drop X" in chat.
+- Find ex-colleagues (Warm messages panel): the user runs LinkedIn's own people search (1st connections, past company = one of `former_companies`) and pastes the result pages. `hub/server/alumni.mjs` matches the names against `career-ops/data/Connections.csv`; nothing on LinkedIn is opened. Ticked people go into `outreach.yml` as `ex-<key>`, `to-message`.
+- Find people at a company (company panel): the user pastes LinkedIn's people search (current company, 1st + 2nd). `hub/server/people-search.mjs` has Claude read the paste (`claude -p`, no tools); mutuals who are saved contacts or connections become intro paths (`intro_via`). When the user asks to draft for someone with `intro_via`, draft the intro request to the introducer first.
+- Hiring posts (Openings page): the user pastes a LinkedIn Posts search. `hub/server/posts-search.mjs` has Claude pick out hiring posts and rate each role against `location_rules`. Ticked posters are added `to-message`.
+- Logos: `hub-data/logos/domains.yml` maps company → website; the icon is fetched once from that site and cached. When you add a company, add its domain there too.
+- Side panel chat (`hub/server/chat.mjs`): runs `claude -p` from the project root (so this file applies), one resumable session per thread in `hub-data/chats/`. Locked down: edits only in `./hub-data/**`, Bash only for read-only scripts, no MCP servers. career-ops changes are proposed as ```` ```hub-action {json}``` ```` blocks and only run when the user clicks Apply.
+- "Tailor CV" tab: a `claude -p` session inside `career-ops/` that follows its pdf mode (cv.md → tailored HTML → fact gate → PDF in `output/`). §2 and `truth_rules` are appended to its prompt. It may write only `output/`, `jds/` and `/tmp/cv-*`; never `cv.md`, config, modes or scripts.
+- Notes: `hub-data/notes/<company-slug>.md`, one `- YYYY-MM-DD: text` per line.
+- How counts work: warm / hiring-manager messages = dates in each contact's `contacted` list that fall in the week (any `ex-*` relation = warm). Applications = `Applied` transitions in `career-ops/data/status-log.tsv`. Posts and prep = ticked boxes in `hub-data/weeks/YYYY-Www.md`.
+
+## 6. Update rules (plain language → file edits)
+
+General:
+- Resolve relative dates ("today", "next Monday", "in a week") in the `timezone` from profile.yml (else this computer's) and write ISO `YYYY-MM-DD`. Say the resolved date back.
+- Edit YAML in place with the Edit tool: keep comments, order and style. After editing, check it parses: `cd hub && node -e 'const y=require("js-yaml"),fs=require("fs");for(const f of ["profile.yml","outreach.yml","routine.yml","application-meta.yml"])y.load(fs.readFileSync("../hub-data/"+f,"utf8"));console.log("ok")'`.
+- Match people and companies case-insensitively. If a name matches more than one contact, or none and the company/relation is unclear, ask one short question instead of guessing.
+- Confirm every change in one line ("Sam: messaged 20 Oct, follow up Mon 27 Oct").
+- Nothing is ever sent. If the user asks for a message, write a draft; they send it.
+- Every message draft goes through the `write-like-me` skill (`.claude/skills/write-like-me/`). When the user says they sent something, add it to `hub-data/voice-samples.md`.
+
+| The user says | Do |
+|---|---|
+| "Messaged Sam today, follow up next Monday" | Contact Sam: append the date to `contacted`, set `last_contact`, `next_date`, `next_action` (default "follow up if no reply"), `status: messaged` unless already `replied`/`intro-made`/`reference-yes`. No follow-up date given → default +7 days and say so. Unknown person → add a contact (ask the relation if not obvious). |
+| "Sam replied" | `status: replied`, `last_contact` = today, ask what the next step is and when. |
+| "Sam introduced me to Priya at Acme" | Sam → `intro-made`. Add Priya (`to-message`, company Acme, relation from context). Company Acme `researching` → `to-contact`. |
+| "Sam will be a reference" | `status: reference-yes`. |
+| "Priya is at Figma now" / "where does Priya work now?" | Set the contact's `company` (and `title` if known); keep `relation`. Add a note line: "Now at X (per <source>, YYYY-MM-DD)." If asked to check, one web search for that person only (and their saved LinkedIn link, once); never sweep the whole list. |
+| "Push Jordan to the 28th" / "move the Acme follow-up to Friday" | Set that contact's `next_date` (keep `status`). Do the same for everyone else at that company who is due on or before the new date, or is `to-message`, so the whole company leaves Today together. Never touch `cold` contacts. Name everyone you moved. |
+| "Alex went quiet" / "drop X" | `status: cold`, clear `next_date`. |
+| "Add Acme to outreach, tier 2, recruiter reached out" | New company with every field (`tier`, `base`, `lead_with`, `why`, `status`, `notes`); pick `lead_with` from profile.yml and say what you picked. Add the recruiter as a contact and the domain to `logos/domains.yml`. Offer to add it to career-ops' scanner: `node discover-ats.mjs <Name>` in career-ops (preview first, `--write` only after they say yes). |
+| "Park Acme" / "Acme: contacted" | Change that company's `status`. |
+| "I posted on LinkedIn" | Tick the first unticked box under `## LinkedIn posts` in this week's file; if all are ticked, add `- [x] Post N`. |
+| "Did 2h of prep" | Tick 2 boxes under `## Interview prep`; add `- [x] 1h` lines if there aren't enough. Half hours: `- [x] 0.5h`. |
+| "Applied to Acme" | Only through career-ops: `cd career-ops && node set-status.mjs <company or #> Applied` (add `--on YYYY-MM-DD` if not today). No tracker row yet → evaluate it first (`/career-ops {JD or URL}` in a Claude session opened in `career-ops/`), or add it without an evaluation (next row). Then make sure `application-meta.yml` has the row's exact company + role, and ask for `channel` and `contact` if missing. Set the outreach company `status: applied`. |
+| "Applied to Acme last Friday, here's the link" (no tracker row, no evaluation wanted) | Hub action `track` (`hub/server/actions.mjs` → `trackApplication`): reserve a number, headed TSV in `career-ops/batch/tracker-additions/` (status `Evaluated`, score `N/A`, no report), `merge-tracker.mjs`, then `set-status.mjs --row N Applied --on <date>`. Keep the job link as the posting URL. Then ask for `channel` and `contact`. |
+| "Got an interview at Acme" / "Acme rejected me" | `node set-status.mjs <company or #> Interview` / `Rejected`. Never edit `applications.md` by hand. |
+| After any career-ops evaluation | Add the row to `application-meta.yml` (company + role exactly as in the tracker) and ask: channel and who the human is. |
+| "I also worked at Spotify" / "I'm only looking in Berlin now" | Update `hub-data/profile.yml` (`former_companies`, `location_rules`, …) and, if it affects scanning or evaluation, offer the matching change in career-ops' user layer (`config/profile.yml`, `portals.yml`). |
+| "Start a new week" | §7. |
+
+## 7. Weekly reset ("start a new week")
+
+1. Work out last week and the new week (ISO weeks, Monday start).
+2. Run `node hub/scripts/week-progress.mjs <any date in last week>`.
+3. Write a 3-line summary: (1) what hit target, (2) what didn't, with the numbers, (3) one focus for this week drawn from the misses and the dashboard (e.g. tier-1 companies with no contact, applications with no human attached). Show it and append it to last week's file under `## Summary`.
+4. Create `hub-data/weeks/<new week>.md` in this exact shape (one box per post target, one box per prep hour at the top of the range from `routine.yml`):
+
+   ```markdown
+   # 2026-W44 · Mon 26 Oct – Sun 1 Nov 2026
+
+   <!-- Messages and applications are counted from outreach.yml (contacted dates) and the
+        career-ops tracker. Only the manual items below are ticked here. -->
+
+   ## LinkedIn posts
+   - [ ] Post 1
+
+   ## Interview prep (1 box = 1 hour)
+   - [ ] 1h
+   - [ ] 1h
+   - [ ] 1h
+
+   ## Notes
+   ```
+5. Don't change outreach or applications during the reset. Do list anything overdue in Today so they can start the week with it.
