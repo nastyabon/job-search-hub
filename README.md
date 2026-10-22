@@ -20,7 +20,7 @@ It's built on [career-ops](https://github.com/career-ops-hq/career-ops) for job 
 **Comfortable with a terminal?**
 
 ```bash
-git clone https://github.com/YOUR-NAME/job-search-hub
+git clone https://github.com/nastyabon/job-search-hub
 cd job-search-hub
 node setup.mjs     # Node 22.13+, git, and Claude Code (signed in) required
 claude             # then say: "walk me through SETUP.md"

@@ -35,7 +35,7 @@ Node.js is a free program the hub runs on. You install it once and never have to
 2. Choose a folder to work in, for example **Documents**.
 3. Copy this sentence, paste it into the chat and press Enter:
 
-   > Set up the Job Search Hub from https://github.com/YOUR-NAME/job-search-hub in this folder. Read its SETUP.md and walk me through it.
+   > Set up the Job Search Hub from https://github.com/nastyabon/job-search-hub in this folder. Read its SETUP.md and walk me through it.
 
 4. Claude will ask for permission before it runs things on your computer. Allow it. It's installing the hub and the job-search tool it uses (career-ops).
 
