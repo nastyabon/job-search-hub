@@ -99,7 +99,7 @@ Start the hub with `npm start` from the project root, in the background. It open
 - **Three things to try**, exactly these (the setup guide lists the same three):
   1. In **Today**, click **Find** next to your top company. Claude looks for the right person to contact there.
   2. Click a company to open its panel, and ask Claude something about it in the chat.
-  3. On the **Openings** page, press **Scan now**. It checks your target companies' job boards and scores new roles against your CV.
+  3. On the home screen, click Best new openings, then Scan now. Claude checks your target companies' job boards and scores new roles against your CV.
   If they skipped target companies, Today is empty: make (1) "Tell Claude a company you'd love to work at" instead.
 - **How to come back later:** open Claude in this folder and say "open my job hub". On a Mac they can also double-click **Start Job Hub** in the folder.
 - **How to update it:** just tell Claude what happened, in plain words.
