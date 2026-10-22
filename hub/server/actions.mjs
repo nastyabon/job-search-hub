@@ -172,6 +172,17 @@ export function addNote({ company, text, today = ymd(new Date()) }) {
   return { date: today };
 }
 
+// career-ops' tracker, created empty (its own onboarding header) on a fresh install: merge-tracker.mjs
+// won't create it, so the first evaluation or "track" would otherwise have nowhere to land.
+export function ensureTracker() {
+  const file = path.join(CAREER_OPS, 'data', 'applications.md');
+  if (fs.existsSync(file)) return;
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, '# Applications Tracker\n\n| # | Date | Company | Role | Score | Status | PDF | Report | Notes |\n|---|------|---------|------|-------|--------|-----|--------|-------|\n');
+}
+
+export const runCareerOps = (args, timeout) => run(args, timeout);
+
 const run = (args, timeout) => new Promise((resolve, reject) => {
   // claudeEnv: rank-pipeline.mjs runs `claude` itself, which may live outside PATH (~/.local/bin).
   execFile(process.execPath, args, { cwd: CAREER_OPS, timeout, maxBuffer: 4 << 20, env: claudeEnv() }, (err, stdout, stderr) => {
@@ -223,6 +234,7 @@ export async function checkLive() {
 //    that was merged straight in as Applied)
 // 5. application-meta.yml gets the row's channel / contact / posting URL
 export async function trackApplication({ company, role, date = ymd(new Date()), status = 'Applied', url = '', channel = '', contact = '', notes = '' }) {
+  ensureTracker();
   const clean = (v) => String(v ?? '').replace(/[\t\r\n|]+/g, ' ').trim();
   company = clean(company); role = clean(role); url = clean(url); notes = clean(notes);
   if (!company || !role) throw new Error('Need the company and the role');
@@ -257,6 +269,7 @@ export async function trackApplication({ company, role, date = ymd(new Date()), 
   const doc = parseDocument(fs.readFileSync(metaFile, 'utf8'));
   const entry = doc.createNode({ company, role, channel: channel || '', contact: contact || '', ...(url ? { url } : {}) });
   if (doc.contents?.items) doc.contents.add(entry); else doc.contents = doc.createNode([entry.toJSON()]);
+  doc.contents.flow = false; // a fresh copy starts as `[]`
   fs.writeFileSync(metaFile, doc.toString({ lineWidth: 0, flowCollectionPadding: false }));
   return { num, company, role, status, date };
 }

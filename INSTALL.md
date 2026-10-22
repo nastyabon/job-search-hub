@@ -87,6 +87,8 @@ The hub keeps running while Claude is open. If you quit Claude, say *"open my jo
 - "I posted on LinkedIn" / "did 2 hours of interview prep"
 - "Start a new week"
 
+**To evaluate a job**, press **Evaluate** on an opening (or on an application that hasn't been evaluated yet), or send Claude the link in a chat. You get a fit report and a tailored CV in a few minutes. It only runs when you confirm, because it uses a fair share of your Claude plan.
+
 **Claude never sends anything for you.** It writes drafts; you copy them and send them yourself.
 
 **To get a newer version**, tell Claude *"update my job hub"*. It downloads the latest version and keeps all your data.

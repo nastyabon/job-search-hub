@@ -182,6 +182,11 @@ function readLiveness() {
 }
 
 // Tailored CVs in career-ops/output (newest first). The panel matches them to a company by slug.
+// Background evaluations (server/evaluate.mjs): [{id, url, company, role, status, step, …}].
+function readEvaluationsFile() {
+  try { return JSON.parse(fs.readFileSync(path.join(HUB_DATA, 'evaluations.json'), 'utf8')); } catch { return []; }
+}
+
 function readCvFiles() {
   try {
     const dir = path.join(CAREER_OPS, 'output');
@@ -331,6 +336,7 @@ export async function buildPayload(now = new Date(), { followups = true } = {}) 
       url, live: liveness[url] ?? null,
       num: r['#'] ?? '', date: toYmd(r.date), company: r.company, role: r.role, score: r.score ?? '',
       status: r.status || 'Unknown', report: (r.report ?? '').match(/\[(\d+)\]/)?.[1] ?? '', notes: r.notes ?? '',
+      reportFile: String(r.report ?? '').match(/reports\/([\w.-]+\.md)/)?.[1] ?? '',
       channel: m?.channel ?? '', contact: m?.contact ?? '', hasMeta: Boolean(m),
     };
   });
@@ -361,6 +367,7 @@ export async function buildPayload(now = new Date(), { followups = true } = {}) 
     pipeline,
     hidden,
     cvFiles: readCvFiles(),
+    evaluations: readEvaluationsFile(),
     notes: readNotes(),
   };
 }

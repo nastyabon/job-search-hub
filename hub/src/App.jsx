@@ -553,8 +553,12 @@ function Applications({ data }) {
               <span className="row-main">
                 <span className="row-title">{r.company}</span>
                 <span className="row-sub"> {r.role}</span>
+                <EvalNote data={data} target={{ url: r.url, num: r.num, company: r.company, role: r.role }} />
               </span>
               <span className="row-meta">
+                {r.reportFile
+                  ? <a className="src" href={reportHref(r)} target="_blank" rel="noreferrer noopener" onClick={(e) => e.stopPropagation()}>Report ↗</a>
+                  : <EvaluateButton data={data} target={{ url: r.url, num: r.num, company: r.company, role: r.role }} />}
                 {/\d/.test(r.score) && <Chip kind="score">{r.score}</Chip>}
                 {r.channel ? <Chip kind={r.channel}>{label(r.channel)}</Chip> : null}
                 <LiveChip live={r.live} />
@@ -568,7 +572,7 @@ function Applications({ data }) {
         </Group>
       ))}
       {apps.untracked.length > 0 && (
-        <Group icon={<StatusIcon status="untracked" />} title="Not in tracker yet" count={apps.untracked.length} aside="run /career-ops on the JD">
+        <Group icon={<StatusIcon status="untracked" />} title="Not in tracker yet" count={apps.untracked.length} aside="press Evaluate to add it with a fit report">
           {apps.untracked.map((u) => (
             <li key={`${u.company}-${u.role}`} className="row row-app untracked clickable" onClick={rowClick(open, { company: u.company, focus: 'app', ref: `u:${u.role}` })}>
               <span className="row-id">—</span>
@@ -576,8 +580,10 @@ function Applications({ data }) {
               <span className="row-main">
                 <span className="row-title">{u.company}</span>
                 <span className="row-sub"> {u.role}</span>
+                <EvalNote data={data} target={{ url: u.url, company: u.company, role: u.role }} />
               </span>
               <span className="row-meta">
+                {(u.url || u.company) && <EvaluateButton data={data} target={{ url: u.url, company: u.company, role: u.role }} />}
                 {u.channel && <Chip kind={u.channel}>{label(u.channel)}</Chip>}
               </span>
               <Thread contact={u.contact} channel={u.channel} onAttach={() => open(attachItem(u))} />
@@ -760,8 +766,10 @@ function Openings({ data }) {
                 <span className="row-title">{o.company}</span>
                 <span className="row-sub"> {o.title}</span>
                 {(o.location || o.reason) && <span className="row-note">{[dedupeList(o.location), o.reason].filter(Boolean).join(' · ')}</span>}
+                <EvalNote data={data} target={{ url: o.url, opening: true }} />
               </span>
               <span className="row-meta">
+                <EvaluateButton data={data} target={{ url: o.url, company: o.company, role: o.title }} />
                 {o.shelved && <Chip kind="undated">Shelved</Chip>}
                 {!ATS_HOSTS.test(o.host) && <Chip kind="via" title="Found on a job board, not the company's own site: confirm it at the employer before applying">via {o.host.split('.').slice(-2, -1)[0] || o.host}</Chip>}
                 {o.posted && <span className="date" title="Posted">{fmtShort(o.posted)}</span>}
@@ -770,7 +778,7 @@ function Openings({ data }) {
           ))}
         </ul>
       </div>
-      {openings.length > 0 && <p className="muted small hint">Scores are a quick read of the title against your CV. For a full evaluation of the good ones (job description, location rules, tailored CV), ask Claude to run <code>/career-ops pipeline</code>.</p>}
+      {openings.length > 0 && <p className="muted small hint">Scores are a quick read of the title against your CV. For a full evaluation of a good one (job description, location rules, tailored CV), press Evaluate.</p>}
     </Section>
   );
 }
@@ -1158,7 +1166,9 @@ function BestOpenings({ data }) {
             <span className="row-main">
               <span className="row-title">{o.company}</span><span className="row-sub"> {o.title}</span>
               {o.location && <span className="row-note">{dedupeList(o.location)}</span>}
+              <EvalNote data={data} target={{ url: o.url, opening: true }} />
             </span>
+            <span className="row-meta"><EvaluateButton data={data} target={{ url: o.url, company: o.company, role: o.title }} /></span>
             {o.posted && <span className="date">{fmtShort(o.posted)}</span>}
           </li>
         ))}
@@ -1709,6 +1719,12 @@ function ItemPanel({ data, item, onClose, back }) {
               <span className="panel-k">Application</span>
               <p><b>{focusedApp.role}</b></p>
               {focusedApp.notes && <p className="muted small">{focusedApp.notes}</p>}
+              <div className="panel-line chips">
+                {focusedApp.reportFile
+                  ? <a className="btn btn-sm" href={reportHref(focusedApp)} target="_blank" rel="noreferrer noopener">Open report ↗</a>
+                  : <EvaluateButton data={data} target={{ url: focusedApp.url, num: focusedApp.num, company: focusedApp.company, role: focusedApp.role }} />}
+              </div>
+              <EvalNote data={data} target={{ url: focusedApp.url, num: focusedApp.num, company: focusedApp.company, role: focusedApp.role }} />
               {!focusedApp.contact && <p className="small signal-text">No person attached yet. Paste their LinkedIn link in the chat, or ask who to reach.</p>}
             </div>
           )}
@@ -1718,7 +1734,9 @@ function ItemPanel({ data, item, onClose, back }) {
               <p><b>{focusedOpening.title}</b></p>
               <p className="muted small">{[focusedOpening.location, focusedOpening.posted && `posted ${fmtShort(focusedOpening.posted)}`].filter(Boolean).join(' · ')}</p>
               {focusedOpening.reason && <p className="small">{focusedOpening.reason}</p>}
+              <EvalNote data={data} target={{ url: focusedOpening.url, opening: true }} />
               <div className="panel-line chips">
+                <EvaluateButton data={data} target={{ url: focusedOpening.url, company: focusedOpening.company, role: focusedOpening.title }} />
                 {focusedOpening.shelved
                   ? <button type="button" className="btn btn-sm" onClick={() => unhideItems([`opening:${focusedOpening.url}`], `${focusedOpening.company}: back in openings`)}>Unshelve</button>
                   : <button type="button" className="btn btn-sm" onClick={() => hideItem(`opening:${focusedOpening.url}`, `${focusedOpening.company} · ${focusedOpening.title}`, 'shelved')} title="Hide from Best openings (kept at the bottom of New openings)">Shelve</button>}
@@ -2291,6 +2309,100 @@ function Md({ text }) {
   });
 }
 
+// ── Evaluate (server/evaluate.mjs): career-ops' full evaluation in the background ─────────
+// Never automatic: every run starts from a confirm. One at a time; progress and outcome come
+// back through data.evaluations.
+
+const EVAL_COST = 'Full evaluation: a fit report and a tailored CV. Takes a few minutes and uses a fair share of your Claude plan.';
+const EVAL_KEEP = "You can keep using the hub. Keep Claude open until it's done.";
+let askEvaluate = null; // set while <EvalConfirm /> is mounted
+
+// Opens the confirm. Resolves true once the evaluation has started, false on Cancel.
+const requestEvaluate = (target) => (askEvaluate ? askEvaluate(target) : Promise.resolve(false));
+
+function EvalConfirm() {
+  const [req, setReq] = useState(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    askEvaluate = (target) => new Promise((resolve) => setReq({ target, resolve }));
+    return () => { askEvaluate = null; };
+  }, []);
+  useEffect(() => {
+    if (!req) return undefined;
+    const onKey = (e) => { if (e.key === 'Escape') { req.resolve(false); setReq(null); } };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [req]);
+  if (!req) return null;
+  const { target } = req;
+  const close = (v) => { req.resolve(v); setReq(null); };
+  const go = async () => {
+    setBusy(true);
+    try {
+      await post('evaluate', target);
+      showToast(`Evaluating ${target.company || 'the role'}. ${EVAL_KEEP}`, 'ok');
+      close(true);
+    } catch (e) { showToast(e.message, 'bad'); close(false); } finally { setBusy(false); }
+  };
+  return (
+    <div className="modal-backdrop" onClick={() => close(false)}>
+      <div className="modal" role="dialog" aria-modal="true" aria-labelledby="eval-title" onClick={(e) => e.stopPropagation()}>
+        <h3 id="eval-title">Evaluate {[target.company, target.role].filter(Boolean).join(' · ') || 'this role'}?</h3>
+        <p>{EVAL_COST}</p>
+        {target.force && <p className="muted small">The pre-check stopped this role last time. This runs the full evaluation anyway.</p>}
+        <div className="modal-actions">
+          <button type="button" className="btn" onClick={() => close(false)}>Cancel</button>
+          <button type="button" className="btn btn-primary" onClick={go} disabled={busy} autoFocus>{busy ? 'Starting…' : 'Evaluate'}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// The latest evaluation of this posting (by link, else tracker #, else company + role).
+function evalFor(data, t) {
+  const list = data.evaluations ?? [];
+  for (let i = list.length - 1; i >= 0; i -= 1) {
+    const e = list[i];
+    if (t.url && e.url) { if (e.url === t.url) return e; continue; }
+    if (t.num && e.num && String(e.num) === String(t.num)) return e;
+    if (!t.url && noteSlug(e.company) === noteSlug(t.company) && String(e.role).toLowerCase() === String(t.role ?? '').toLowerCase()) return e;
+  }
+  return null;
+}
+
+function EvaluateButton({ data, target }) {
+  const running = (data.evaluations ?? []).find((e) => e.status === 'running');
+  const mine = evalFor(data, target);
+  if (mine?.status === 'running') return <Chip kind="evaluating" title={mine.step || 'Starting'}>Evaluating…</Chip>;
+  if (mine?.status === 'done') return null;
+  const other = Boolean(running);
+  const stopped = mine?.status === 'stopped';
+  const again = mine && ['failed', 'interrupted'].includes(mine.status);
+  const text = other ? `Waiting for ${running.company || 'another role'}` : stopped ? 'Evaluate anyway' : again ? 'Run again' : 'Evaluate';
+  const why = other ? `One evaluation at a time: Claude is evaluating ${running.company || 'another role'}. This one can start when it's done.` : EVAL_COST;
+  return (
+    <button type="button" className="btn btn-sm" disabled={other} title={why}
+      onClick={(ev) => { ev.stopPropagation(); requestEvaluate({ url: target.url || '', company: target.company, role: target.role, num: target.num || '', ...(stopped ? { force: true } : {}) }); }}>
+      {text}
+    </button>
+  );
+}
+
+// One line under the row: progress while it runs, then how it ended.
+function EvalNote({ data, target }) {
+  const e = evalFor(data, target);
+  if (!e) return null;
+  if (e.status === 'running') return <span className="row-note eval-note">Evaluating: {e.step || 'starting'}. {EVAL_KEEP}</span>;
+  if (e.status === 'stopped') return <span className="row-note eval-note">The pre-check stopped it: not a fit. Claude explains why in the company's chat.</span>;
+  if (e.status === 'interrupted') return <span className="row-note eval-note bad">The evaluation stopped when the hub closed. Run it again?</span>;
+  if (e.status === 'failed') return <span className="row-note eval-note bad">The evaluation didn't finish: {String(e.error || 'something went wrong').replace(/\.$/, '')}. Run it again?</span>;
+  if (e.status === 'done' && target.opening) return <span className="row-note eval-note">Evaluated{e.score ? `: ${e.score}` : ''}. It's in Applications.</span>;
+  return null;
+}
+
+const reportHref = (r) => `/api/report?name=${encodeURIComponent(r.reportFile)}`;
+
 const ACTION_RUN = {
   status: (a) => post('status', { num: a.num, status: a.status }),
   track: (a) => post('track', a),
@@ -2302,13 +2414,17 @@ const ACTION_RUN = {
 function ActionButton({ action }) {
   const [state, setState] = useState('');
   const apply = async () => {
+    if (action.type === 'evaluate') {
+      if (await requestEvaluate(action)) setState('done');
+      return;
+    }
     setState('busy');
     try { await ACTION_RUN[action.type](action); setState('done'); showToast(`Done: ${action.label}`); } catch (e) { setState(''); showToast(e.message, 'bad'); }
   };
   return (
     <div className="proposal">
       <span className="proposal-label">{action.label || action.type}</span>
-      <button type="button" className="btn btn-sm btn-primary" onClick={apply} disabled={state !== ''}>{state === 'done' ? '✓ Applied' : state === 'busy' ? 'Applying…' : 'Apply'}</button>
+      <button type="button" className="btn btn-sm btn-primary" onClick={apply} disabled={state !== ''}>{state === 'done' ? (action.type === 'evaluate' ? '✓ Started' : '✓ Applied') : state === 'busy' ? 'Applying…' : action.type === 'evaluate' ? 'Evaluate' : 'Apply'}</button>
     </div>
   );
 }
@@ -2740,6 +2856,7 @@ export default function App() {
         {data && item && !leaving && <PanelResize width={panelW} onResize={setPanelW} onLive={setPanelWLive} />}
         {data && <Pill data={data} />}
         <Toast />
+        <EvalConfirm />
       </div>
     </PanelContext.Provider>
   );

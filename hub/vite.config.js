@@ -7,6 +7,8 @@ import { alumniPreview, alumniAdd } from './server/alumni.mjs';
 import { peoplePreview, peopleAdd } from './server/people-search.mjs';
 import { postsPreview, postsAdd } from './server/posts-search.mjs';
 import { logoFor } from './server/logos.mjs';
+import { startEvaluation, recoverEvaluations } from './server/evaluate.mjs';
+import { reportHtml } from './server/report-html.mjs';
 import { markContacted, undo, setAppStatus, checkLive, runScan, rankOpenings, isScanning, addNote, weekTick, trackApplication, hideItem, unhideItem, dropContact, APP_STATES } from './server/actions.mjs';
 import { runChat, readThread, undoChat, chatBusy, listThreads } from './server/chat.mjs';
 
@@ -37,7 +39,7 @@ import { runChat, readThread, undoChat, chatBusy, listThreads } from './server/c
 //   GET  /api/logo?company=…  a company's icon (hub-data/logos, fetched once from its own site)
 //   GET  /api/cv-file?name=…    a tailored CV from career-ops/output
 //   POST /api/chat              {thread, message, context}  streams NDJSON events (see server/chat.mjs)
-const ACTIONS = { contacted: markContacted, undo, status: setAppStatus, live: checkLive, scan: runScan, rank: rankOpenings, note: addNote, week: weekTick, track: trackApplication, hide: hideItem, unhide: unhideItem, drop: dropContact, 'chat-undo': undoChat, 'alumni-preview': alumniPreview, 'alumni-add': alumniAdd, 'people-preview': peoplePreview, 'people-add': peopleAdd, 'posts-preview': postsPreview, 'posts-add': postsAdd };
+const ACTIONS = { contacted: markContacted, undo, status: setAppStatus, live: checkLive, scan: runScan, rank: rankOpenings, note: addNote, week: weekTick, track: trackApplication, hide: hideItem, unhide: unhideItem, drop: dropContact, 'chat-undo': undoChat, 'alumni-preview': alumniPreview, 'alumni-add': alumniAdd, 'people-preview': peoplePreview, 'people-add': peopleAdd, 'posts-preview': postsPreview, 'posts-add': postsAdd, evaluate: startEvaluation };
 
 // HUB_PORT lets a second copy (e.g. a design branch) run next to the main hub. Default 5199.
 const PORT = Number(process.env.HUB_PORT) || 5199;
@@ -56,6 +58,7 @@ function hubData() {
   return {
     name: 'hub-data',
     configureServer(server) {
+      recoverEvaluations(); // a run still marked running was cut short when the hub stopped
       const clients = new Set();
       let timer;
       const notify = () => {
@@ -151,6 +154,19 @@ function hubData() {
         }
         res.setHeader('Content-Type', name.endsWith('.pdf') ? 'application/pdf' : 'text/html; charset=utf-8');
         fs.createReadStream(file).pipe(res);
+      });
+
+      // An evaluation report from career-ops/reports (basename only), as a readable page.
+      server.middlewares.use('/api/report', (req, res) => {
+        const name = new URL(req.url, 'http://x').searchParams.get('name') ?? '';
+        const file = path.join(CAREER_OPS, 'reports', path.basename(name));
+        if (!/^[\w.-]+\.md$/.test(name) || path.basename(name) !== name || !fs.existsSync(file)) {
+          res.statusCode = 404;
+          res.end('Not found');
+          return;
+        }
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.end(reportHtml(fs.readFileSync(file, 'utf8'), name.replace(/\.md$/, '')));
       });
 
       // Recent chats (read-only), for the General panel's list.
