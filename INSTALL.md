@@ -56,6 +56,8 @@ Claude will ask you about:
 
 Answer in your own words. You can change any of it later just by telling Claude.
 
+You can skip a question, or stop and come back later: everything is saved as you go. To pick up where you left off, open Claude in the **job-search-hub** folder and say *"continue the setup"*.
+
 ## Step 5. Your hub opens
 
 When setup is done, the hub opens in your browser at **127.0.0.1:5199**. That address only works on your computer.

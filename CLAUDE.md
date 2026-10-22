@@ -8,7 +8,8 @@ If any of these is true, follow `SETUP.md` before anything else, then come back 
 
 - `career-ops/` or `hub/node_modules/` is missing,
 - `hub-data/profile.yml` is missing or has no `name`,
-- `career-ops/cv.md` is missing.
+- `career-ops/cv.md` is missing,
+- `hub-data/setup-progress.md` has an unticked step, or the user says "continue the setup".
 
 When the user says "open my job hub" (or similar) and setup is done: start it with `npm run hub` from the project root as a background command, wait until http://127.0.0.1:5199 answers, and tell them it's open in their browser. If it's already running, just say so and give the link.
 

@@ -2,11 +2,18 @@
 
 The person you're setting up probably doesn't use a terminal. Do every technical step yourself, explain in plain words what's happening, and never ask them to type a command. Ask a few questions at a time, not a form. The whole thing should take about 15–20 minutes.
 
-Start by saying, in your own words: "I'll set up your Job Search Hub. First I'll install a few things (a couple of minutes), then I'll ask you about your job search. Everything stays on this computer."
+Start by saying, in your own words: "I'll set up your Job Search Hub. First I'll install a few things (a couple of minutes), then I'll ask you about your job search. Everything stays on this computer. You can skip any question or stop at any point and continue later."
+
+## Stopping and resuming
+
+- **Skipping:** everything except the CV can be skipped or left for later ("I'll add companies later", "skip LinkedIn"). The CV is needed because job matching and CV tailoring run on it. Leave skipped fields blank; never fill them with guesses.
+- **Progress file:** right after step 1, create `hub-data/setup-progress.md` with one line per step 2–7 (`- [ ] 2. CV and job targets`, …). When a step is finished, tick it (`- [x]`); when they skip it, write `- [x] 4. Target companies (skipped)`.
+- **Stopping:** if they want to stop, or hit a usage limit, say: "Everything so far is saved. When you're ready, open Claude in the job-search-hub folder and say **continue the setup**."
+- **Resuming** ("continue the setup", or the first-run check in CLAUDE.md §0 sends you here): say hello back, read `hub-data/setup-progress.md`, and continue at the first unticked step. If the file is missing, work it out from the files: `node setup.mjs` not run (no `hub/node_modules`) → step 1; no `career-ops/cv.md` → step 2; `hub-data/profile.yml` has no `name` → step 3; no companies in `outreach.yml` → step 4; no file in `hub-data/weeks/` → step 5. Say in one line what's already done ("Your CV and profile are in. Next: the companies you'd like to work at.") and don't ask again for anything that's already there.
 
 ## 1. Install
 
-1. Check `node --version`. If Node is missing or older than 22.13, say: "You need one free program called Node.js. Go to nodejs.org, download the version marked **LTS**, open it and click through the installer. Tell me when it's done." Then check again.
+1. Check `node --version`. If Node is missing or older than 22.13, say: "You need one free program called Node.js. Go to nodejs.org, download the version marked **LTS**, open it and click through the installer. Tell me when it's done." Then check again. If `node` still isn't found, try `/usr/local/bin/node --version` (where that installer puts it). If that works, only this session hasn't picked it up: say "Node is installed, but I need a fresh start to see it. Quit Claude completely, open it again in this same folder and say **continue the setup**. Nothing is lost." If that doesn't work either, the installer didn't finish: ask them to run it again.
 2. Run `node setup.mjs` from the project root. It checks git, downloads career-ops, copies the starter files into `hub-data/` and installs packages. It's safe to run again.
    - If git is missing on a Mac, run `xcode-select --install` and say: "A window just opened asking to install developer tools. Click **Install** and wait for it to finish (a few minutes), then tell me." Then run setup again.
    - If anything else fails, read the error, fix what you can, and explain the rest in one plain sentence.
