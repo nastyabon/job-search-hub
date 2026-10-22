@@ -2,6 +2,7 @@
   "name": "job-search-hub",
   "private": true,
   "description": "A local dashboard for your job search, run by Claude. Runs on your computer only; never deploy it.",
+  "license": "MIT",
   "scripts": {
     "setup": "node setup.mjs",
     "start": "node hub/scripts/start.mjs",

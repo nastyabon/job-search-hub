@@ -9,7 +9,7 @@ A personal dashboard for your job search that you run by talking to Claude.
 
 You update it in plain words ("Messaged Sam today, follow up Monday") and Claude does the rest. It finds and scores openings, tailors your CV and drafts messages in your voice. It never sends anything for you.
 
-It's built on [career-ops](https://github.com/career-ops-hq/career-ops) for job discovery, fit scoring, CV tailoring and the application tracker, and adds network outreach and a weekly routine on top.
+Built on [career-ops](https://github.com/career-ops-hq/career-ops) (MIT), by [Santiago Fernández de Valderrama](https://github.com/career-ops-hq/career-ops).
 
 **Private by design.** It runs only on your computer (`127.0.0.1`), and your data stays in local folders that are never committed to git. Please don't deploy it anywhere.
 
