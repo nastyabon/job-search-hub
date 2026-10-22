@@ -14,8 +14,8 @@ const CANDIDATES = [
   '/opt/homebrew/bin/claude',
 ];
 
-export const NO_CLAUDE = "Claude isn't set up for the hub yet. Ask Claude to finish the setup (it installs the Claude Code command and signs you in).";
-export const NOT_SIGNED_IN = "Claude isn't signed in for the hub. Ask Claude to finish the setup, or to sign the hub in.";
+export const NO_CLAUDE = "Claude isn't set up for the hub yet. Open Claude in your job-search-hub folder and say 'continue the setup'.";
+export const NOT_SIGNED_IN = "Claude isn't signed in for the hub. Open Claude in your job-search-hub folder and say 'continue the setup'.";
 
 let cached = '';
 

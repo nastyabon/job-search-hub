@@ -9,7 +9,9 @@ If any of these is true, follow `SETUP.md` before anything else, then come back 
 - `career-ops/` or `hub/node_modules/` is missing,
 - `hub-data/profile.yml` is missing or has no `name`,
 - `career-ops/cv.md` is missing,
-- `hub-data/setup-progress.md` has an unticked step, or the user says "continue the setup".
+- `hub-data/setup-progress.md` has an unticked step,
+- the user says "continue the setup" (even when setup is done: SETUP.md always checks the hub's own Claude install and sign-in first, and fixes them),
+- the hub showed "Claude isn't set up for the hub yet" or "Claude isn't signed in for the hub".
 
 When the user says "open my job hub" (or similar) and setup is done: run `npm start` from the project root as a background command. It opens the hub if it's already running; otherwise it starts it on port 5199, or on the next free port (5299, 5399, 5499) if another program has 5199, and the browser opens by itself. Read the address it prints and give them that link.
 

@@ -6,7 +6,14 @@ Start by saying, in your own words: "I'll set up your Job Search Hub. First I'll
 
 ## Already installed?
 
-Before downloading anything, look for an existing hub: this folder may already be one (it has `SETUP.md` and `hub/`), or have a `job-search-hub/` folder in it. If so, never download it again and never create a second copy inside it. Work in that folder:
+Before downloading anything, look for an existing hub: this folder may already be one (it has `SETUP.md` and `hub/`), or have a `job-search-hub/` folder in it. If so, never download it again and never create a second copy inside it. Work in that folder.
+
+**Always first, even if setup looks done: the hub's own Claude.** Run `node hub/scripts/claude-check.mjs`. It prints one line:
+
+- `CLAUDE_CODE_OK` → go on below.
+- `CLAUDE_CODE_MISSING` or `CLAUDE_CODE_SIGNED_OUT` → fix it now as in step 1.3 (install, then sign in), run the check again, and say in one line what you fixed. Only then go on below.
+
+Then:
 
 - `hub-data/profile.yml` has a `name` and `hub-data/setup-progress.md` is all ticked (or missing, with `career-ops/cv.md` present) → setup is done. Say "Your Job Search Hub is already set up." and open it (CLAUDE.md §0, "open my job hub").
 - Otherwise → resume (below). Their data is never overwritten: `setup.mjs` only adds missing files.
@@ -18,7 +25,7 @@ If the user is in the wrong place (for example Documents, with the hub in `Docum
 - **Skipping:** everything except the CV can be skipped or left for later ("I'll add companies later", "skip LinkedIn"). The CV is needed because job matching and CV tailoring run on it. Leave skipped fields blank; never fill them with guesses.
 - **Progress file:** right after step 1, create `hub-data/setup-progress.md` with one line per step 2–7 (`- [ ] 2. CV and job targets`, …). When a step is finished, tick it (`- [x]`); when they skip it, write `- [x] 4. Target companies (skipped)`.
 - **Stopping:** if they want to stop, or hit a usage limit, say: "Everything so far is saved. When you're ready, open Claude in the job-search-hub folder and say **continue the setup**."
-- **Resuming** ("continue the setup", or the first-run check in CLAUDE.md §0 sends you here): say hello back, read `hub-data/setup-progress.md`, and continue at the first unticked step. If the file is missing, work it out from the files: `node setup.mjs` not run (no `hub/node_modules`) → step 1; no `career-ops/cv.md` → step 2; `hub-data/profile.yml` has no `name` → step 3; no companies in `outreach.yml` → step 4; no file in `hub-data/weeks/` → step 5. Say in one line what's already done ("Your CV and profile are in. Next: the companies you'd like to work at.") and don't ask again for anything that's already there.
+- **Resuming** ("continue the setup", or the first-run check in CLAUDE.md §0 sends you here): say hello back, do the hub's-Claude check above, read `hub-data/setup-progress.md`, and continue at the first unticked step. If the file is missing, work it out from the files: `node setup.mjs` not run (no `hub/node_modules`) → step 1; no `career-ops/cv.md` → step 2; `hub-data/profile.yml` has no `name` → step 3; no companies in `outreach.yml` → step 4; no file in `hub-data/weeks/` → step 5. Say in one line what's already done ("Your CV and profile are in. Next: the companies you'd like to work at.") and don't ask again for anything that's already there.
 
 ## 1. Install
 
