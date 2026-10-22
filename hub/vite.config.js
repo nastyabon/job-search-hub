@@ -9,6 +9,7 @@ import { postsPreview, postsAdd } from './server/posts-search.mjs';
 import { logoFor } from './server/logos.mjs';
 import { startEvaluation, recoverEvaluations } from './server/evaluate.mjs';
 import { reportHtml } from './server/report-html.mjs';
+import { findPreview, findAdd } from './server/find.mjs';
 import { markContacted, undo, setAppStatus, checkLive, runScan, rankOpenings, isScanning, addNote, weekTick, trackApplication, hideItem, unhideItem, dropContact, APP_STATES } from './server/actions.mjs';
 import { runChat, readThread, undoChat, chatBusy, listThreads } from './server/chat.mjs';
 
@@ -39,7 +40,7 @@ import { runChat, readThread, undoChat, chatBusy, listThreads } from './server/c
 //   GET  /api/logo?company=…  a company's icon (hub-data/logos, fetched once from its own site)
 //   GET  /api/cv-file?name=…    a tailored CV from career-ops/output
 //   POST /api/chat              {thread, message, context}  streams NDJSON events (see server/chat.mjs)
-const ACTIONS = { contacted: markContacted, undo, status: setAppStatus, live: checkLive, scan: runScan, rank: rankOpenings, note: addNote, week: weekTick, track: trackApplication, hide: hideItem, unhide: unhideItem, drop: dropContact, 'chat-undo': undoChat, 'alumni-preview': alumniPreview, 'alumni-add': alumniAdd, 'people-preview': peoplePreview, 'people-add': peopleAdd, 'posts-preview': postsPreview, 'posts-add': postsAdd, evaluate: startEvaluation };
+const ACTIONS = { contacted: markContacted, undo, status: setAppStatus, live: checkLive, scan: runScan, rank: rankOpenings, note: addNote, week: weekTick, track: trackApplication, hide: hideItem, unhide: unhideItem, drop: dropContact, 'chat-undo': undoChat, 'alumni-preview': alumniPreview, 'alumni-add': alumniAdd, 'people-preview': peoplePreview, 'people-add': peopleAdd, 'posts-preview': postsPreview, 'posts-add': postsAdd, evaluate: startEvaluation, 'find-preview': findPreview, 'find-add': findAdd };
 
 // HUB_PORT lets a second copy (e.g. a design branch) run next to the main hub. Default 5199.
 const PORT = Number(process.env.HUB_PORT) || 5199;

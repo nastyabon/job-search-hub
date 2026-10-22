@@ -1016,7 +1016,7 @@ function TodayRow({ x, today }) {
       </span>
       {x.kind === 'due' && <DueChip date={x.date} today={today} />}
       {x.kind !== 'done' && (
-        <button type="button" className="btn btn-sm row-draft" onClick={() => open({ ...x.item, send: draft })}>
+        <button type="button" className="btn btn-sm row-draft" onClick={() => open(x.kind === 'find' ? { kind: 'find', company: x.name } : { ...x.item, send: draft })}>
           {x.kind === 'find' ? 'Find' : 'Draft'}
         </button>
       )}
@@ -1401,6 +1401,7 @@ function panelLabel(data, item) {
   if (item.kind === 'network') return 'Network';
   if (item.kind === 'alumni') return 'Find ex-colleagues';
   if (item.kind === 'people') return `Find people at ${item.company}`;
+  if (item.kind === 'find') return `Who to contact at ${item.company}`;
   if (item.kind === 'posts') return 'Hiring posts';
   if (item.focus === 'person') return item.ref;
   return item.company;
@@ -1427,6 +1428,8 @@ function SidePanel({ data, stack, setStack, onClose }) {
         ? <PostsPanel key={key} onClose={onClose} back={back} />
         : item.kind === 'people'
         ? <PeoplePanel key={key} data={data} company={item.company} onClose={onClose} back={back} />
+        : item.kind === 'find'
+        ? <FindPanel key={key} company={item.company} onClose={onClose} back={back} />
         : item.kind
         ? <OverviewPanel key={key} data={data} item={item} onClose={onClose} back={back} />
         : item.global
@@ -1755,6 +1758,7 @@ function ItemPanel({ data, item, onClose, back }) {
             {c && c.contacts.length > 0
               ? <ul className="people">{c.contacts.map((p) => <ContactRow key={p.name} c={p} today={data.today} inPanel />)}</ul>
               : <p className="muted small">Nobody at {item.company} yet. Paste a LinkedIn link in the chat to add someone.</p>}
+            <p className="find-alumni"><button type="button" className="linkish small" onClick={() => panel.open({ kind: 'find', company: item.company })}>Who should I contact at {item.company}? ↗</button></p>
             <p className="find-alumni"><button type="button" className="linkish small" onClick={() => panel.open({ kind: 'people', company: item.company })}>Find people at {item.company} on LinkedIn ↗</button></p>
           </div>
           {!focusedApp && (ctx.apps.length > 0 || ctx.untracked.length > 0) && (
@@ -2039,6 +2043,89 @@ function AlumniPanel({ onClose, back }) {
 // intro path ("via Jamie Chen, ex-Acme"). Nothing is saved until Add.
 const INTRO_RANK = (m) => (isWarm(m.relation) ? 0 : m.relation && m.relation !== 'connection' ? 1 : m.relation ? 2 : 3);
 const introsOf = (p) => p.mutual.filter((m) => m.relation).sort((a, b) => INTRO_RANK(a) - INTRO_RANK(b));
+
+// Find: who to contact at a company (server/find.mjs). People you know there (connections export)
+// and people a short web search suggests, with tick boxes. Nothing is saved until Add; added people
+// get today's date, so they show in Today with a Draft button.
+function FindPanel({ company, onClose, back }) {
+  usePanelEscape(onClose);
+  const { open } = usePanel();
+  const [res, setRes] = useState(null);
+  const [picked, setPicked] = useState({});
+  const [busy, setBusy] = useState('');
+  const [err, setErr] = useState('');
+  const load = async (refresh = false) => {
+    setBusy('search'); setErr('');
+    try {
+      const r = await post('find-preview', { company, refresh });
+      setRes(r);
+      const tick = (p) => !p.saved && (p.relation !== 'other' || p.url) && p.confidence !== 'medium';
+      setPicked(Object.fromEntries([...r.known, ...r.people].map((p) => [p.name, tick(p)])));
+    } catch (e) { setErr(e.message); } finally { setBusy(''); }
+  };
+  useEffect(() => { load(); }, [company]); // eslint-disable-line react-hooks/exhaustive-deps
+  const all = res ? [...res.known, ...res.people] : [];
+  const chosen = all.filter((p) => !p.saved && picked[p.name]);
+  const add = async () => {
+    setBusy('add');
+    try {
+      const r = await post('find-add', { company, people: chosen });
+      showToast(`Added ${plural(r.added.length, 'person')} at ${company}. They're in Today with a Draft button.`, 'ok', () => post('undo', { id: r.undo }));
+      onClose();
+    } catch (e) { showToast(e.message, 'bad'); } finally { setBusy(''); }
+  };
+  const group = (title, list, note) => list.length > 0 && (
+    <div className="panel-sec">
+      <span className="panel-k">{title} · {list.length}</span>
+      {note && <p className="muted small">{note}</p>}
+      <ul className="people">{list.map((p) => (
+        <li key={p.name} className="person-row alumni-row">
+          <input type="checkbox" checked={Boolean(picked[p.name])} disabled={p.saved} onChange={(e) => setPicked((x) => ({ ...x, [p.name]: e.target.checked }))} aria-label={`Add ${p.name}`} />
+          <Avatar name={p.name} />
+          <span className="row-main"><span className="row-title">{p.name}</span>
+            <span className="row-sub"> · {p.title || label(p.relation)}</span>
+            {(p.saved || p.why) && <span className="row-note">{p.saved ? 'Already saved' : p.why}</span>}
+          </span>
+          <span className="row-meta">
+            {p.relation !== 'other' && <Chip kind="lead">{p.relation === 'hiring-manager' ? 'could hire' : 'recruiter'}</Chip>}
+            {(p.source || p.url) && <a className="src" href={p.source || p.url} target="_blank" rel="noreferrer noopener">{p.url && !p.source ? 'Profile' : 'Source'} ↗</a>}
+          </span>
+        </li>
+      ))}</ul>
+    </div>
+  );
+  return (
+    <aside className="panel" aria-label={`Who to contact at ${company}`}>
+      <PanelHeader onClose={onClose} back={back} title={`Who to contact at ${company}`} sub="People you know there, and people Claude found" />
+      <div className="panel-body">
+        {busy === 'search' && <p className="muted">Claude is looking for people at {company}: the likely hiring manager, a recruiter, maybe a peer. About a minute. It uses a little of your Claude plan and doesn't open LinkedIn.</p>}
+        {err && <p className="notice">{err}</p>}
+        {res && (
+          <>
+            {group('You know them', res.known, 'From your LinkedIn connections export.')}
+            {group('Suggested by Claude', res.people, 'From a web search. Check each one before you write: titles change.')}
+            {all.length === 0 && <p className="muted small">Claude didn't find anyone named at {company} on the open web.</p>}
+            {(res.tips?.length > 0 || res.people.length < 3) && (
+              <div className="panel-sec">
+                <span className="panel-k">Where to look next</span>
+                {res.tips?.length > 0 && <ul className="tips">{res.tips.map((t) => <li key={t} className="small"><Md text={t} /></li>)}</ul>}
+                <p className="small">Team leads and recruiters are often only named on LinkedIn. You can run LinkedIn's people search yourself and paste the results into the hub.</p>
+                <div className="panel-line"><button type="button" className="btn btn-sm" onClick={() => open({ kind: 'people', company })}>Find people at {company} on LinkedIn</button></div>
+              </div>
+            )}
+            {!res.hasExport && <p className="muted small">Add your LinkedIn connections export to also see who you already know here (say “here's my LinkedIn connections export” to Claude).</p>}
+            <div className="panel-line">
+              <button type="button" className="btn" onClick={() => load(true)} disabled={Boolean(busy)} title="Runs the web search again (uses a little of your Claude plan)">Search again</button>
+              <span className="grow" />
+              {chosen.length > 0 && <button type="button" className="btn btn-primary" onClick={add} disabled={Boolean(busy)}>{busy === 'add' ? 'Adding…' : `Add ${plural(chosen.length, 'person')}`}</button>}
+            </div>
+            {res.at && <p className="muted small">Searched {fmtShort(res.at.slice(0, 10))}. Nothing is saved until you click Add.</p>}
+          </>
+        )}
+      </div>
+    </aside>
+  );
+}
 
 function PeoplePanel({ company, onClose, back }) {
   usePanelEscape(onClose);
