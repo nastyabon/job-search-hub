@@ -1,0 +1,10 @@
+#!/usr/bin/env node
+// `claude` as career-ops' own scripts see it when the hub runs them (rank-pipeline.mjs): the real
+// Claude Code (HUB_REAL_CLAUDE, set by claudeEnv), plus the hook that refuses LinkedIn pages.
+import { spawn } from 'node:child_process';
+import { noLinkedInArgs } from '../claude-bin.mjs';
+
+const real = process.env.HUB_REAL_CLAUDE;
+if (!real) { console.error('HUB_REAL_CLAUDE is not set'); process.exit(1); }
+const child = spawn(real, [...noLinkedInArgs(), ...process.argv.slice(2)], { stdio: 'inherit' });
+child.on('exit', (code, signal) => (signal ? process.kill(process.pid, signal) : process.exit(code ?? 1)));

@@ -28,10 +28,20 @@ export function claudeBin() {
   return cached;
 }
 
-// Environment for career-ops scripts that call `claude` themselves (rank-pipeline.mjs).
+// Background runs never open LinkedIn pages: a PreToolUse hook refuses WebFetch on linkedin.com,
+// every subdomain (de., uk., …), lnkd.in and licdn.com. A domain permission rule isn't enough: it
+// matches the exact host only. Passed with --settings, so it applies with --setting-sources ''.
+const HOOK = path.join(import.meta.dirname, 'no-linkedin-hook.mjs');
+export const noLinkedInArgs = () => ['--settings', JSON.stringify({
+  hooks: { PreToolUse: [{ matcher: 'WebFetch', hooks: [{ type: 'command', command: `"${process.execPath}" "${HOOK}"` }] }] },
+})];
+
+// Environment for career-ops scripts that call `claude` themselves (rank-pipeline.mjs): `claude`
+// resolves to bin/claude, which runs the real one with the no-LinkedIn hook.
 export function claudeEnv() {
   const bin = claudeBin();
-  return bin ? { ...process.env, PATH: `${path.dirname(bin)}${path.delimiter}${process.env.PATH ?? ''}` } : process.env;
+  if (!bin) return process.env;
+  return { ...process.env, HUB_REAL_CLAUDE: bin, PATH: `${path.join(import.meta.dirname, 'bin')}${path.delimiter}${path.dirname(bin)}${path.delimiter}${process.env.PATH ?? ''}` };
 }
 
 // A login problem in Claude's error output → the plain-words message.

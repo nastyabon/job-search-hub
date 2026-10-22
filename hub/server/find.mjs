@@ -12,7 +12,7 @@ import { HUB_DATA, ymd, noteSlug } from './data.mjs';
 import { editOutreach } from './actions.mjs';
 import { readConnections, key } from './alumni.mjs';
 import { loadProfile } from './profile.mjs';
-import { claudeBin, friendlyClaudeError, NO_CLAUDE } from './claude-bin.mjs';
+import { claudeBin, friendlyClaudeError, noLinkedInArgs, NO_CLAUDE } from './claude-bin.mjs';
 
 const OUTREACH = path.join(HUB_DATA, 'outreach.yml');
 const CACHE = path.join(HUB_DATA, 'find');
@@ -54,7 +54,7 @@ function research(company, why) {
     const child = spawn(bin, ['-p', prompt(company, why), '--output-format', 'json', '--model', 'sonnet',
       '--tools', 'WebSearch,WebFetch', '--allowedTools', 'WebSearch', 'WebFetch',
       '--disallowedTools', 'WebFetch(domain:linkedin.com)', 'WebFetch(domain:www.linkedin.com)',
-      '--permission-mode', 'dontAsk', '--strict-mcp-config', '--setting-sources', ''], { stdio: ['ignore', 'pipe', 'pipe'] });
+      '--permission-mode', 'dontAsk', '--strict-mcp-config', '--setting-sources', '', ...noLinkedInArgs()], { stdio: ['ignore', 'pipe', 'pipe'] });
     let out = '';
     let err = '';
     const timer = setTimeout(() => child.kill(), 4 * 60_000);
