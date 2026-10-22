@@ -1499,13 +1499,17 @@ const chatMark = (name) => {
 };
 // Sidebar logo: the week as seven dots around a disc (Monday at the top, clockwise),
 // today's dot in the accent colour. The other dots are cut out of the disc.
-function WeekMark() {
+function weekDots() {
   const today = (new Date().getDay() + 6) % 7;
   const dots = Array.from({ length: 7 }, (_, i) => {
     const a = (i / 7) * 2 * Math.PI - Math.PI / 2;
-    return { i, x: 12 + 6.3 * Math.cos(a), y: 12 + 6.3 * Math.sin(a) };
+    return { i, x: +(12 + 6.3 * Math.cos(a)).toFixed(2), y: +(12 + 6.3 * Math.sin(a)).toFixed(2) };
   });
-  const t = dots[today];
+  return { today, dots, t: dots[today] };
+}
+
+function WeekMark() {
+  const { today, dots, t } = weekDots();
   return (
     <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
       <mask id="week-mark-cut">
@@ -1516,6 +1520,24 @@ function WeekMark() {
       <circle cx={t.x} cy={t.y} r="1.9" fill="var(--signal)" />
     </svg>
   );
+}
+
+// The same mark as the tab icon. A favicon can't read the page's CSS variables, so the ink and
+// accent colours are written in, with a dark-mode pair. The dots are a little bigger so they
+// still show at 16px. Redrawn every few minutes so today's dot moves at midnight.
+function useWeekFavicon() {
+  useEffect(() => {
+    const link = document.querySelector('link[rel="icon"]') ?? document.head.appendChild(Object.assign(document.createElement('link'), { rel: 'icon', type: 'image/svg+xml' }));
+    const draw = () => {
+      const { today, dots, t } = weekDots();
+      const cuts = dots.map((d) => `<circle cx="${d.x}" cy="${d.y}" r="${d.i === today ? 3 : 1.8}" fill="#000"/>`).join('');
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><style>.ink{fill:#191918}.sig{fill:#e32d14}@media (prefers-color-scheme:dark){.ink{fill:#d4d4d4}.sig{fill:#ff6b55}}</style><mask id="m"><rect width="24" height="24" fill="#fff"/>${cuts}</mask><circle class="ink" cx="12" cy="12" r="12" mask="url(#m)"/><circle class="sig" cx="${t.x}" cy="${t.y}" r="2.2"/></svg>`;
+      link.href = `data:image/svg+xml,${encodeURIComponent(svg)}`;
+    };
+    draw();
+    const id = setInterval(draw, 5 * 60_000);
+    return () => clearInterval(id);
+  }, []);
 }
 
 // A company chat shows the company's logo (served from hub-data/logos); anything else, or a
@@ -2903,6 +2925,7 @@ function Skeleton() {
 
 export default function App() {
   const { data, error, stale } = useHubData();
+  useWeekFavicon();
   const route = useRoute();
   const [stack, setStack] = useState([]);
   const [panelW, setPanelW, setPanelWLive] = usePanelWidth();
