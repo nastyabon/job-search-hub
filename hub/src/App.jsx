@@ -2521,10 +2521,14 @@ function ActionButton({ action }) {
     setState('busy');
     try { await ACTION_RUN[action.type](action); setState('done'); showToast(`Done: ${action.label}`); } catch (e) { setState(''); showToast(e.message, 'bad'); }
   };
+  // Adding a role ("track") says Add, so it doesn't read as applying to the job.
+  const [verb, busy, done] = action.type === 'evaluate' ? ['Evaluate', 'Applying…', '✓ Started']
+    : action.type === 'track' ? ['Add', 'Adding…', '✓ Added']
+    : ['Apply', 'Applying…', '✓ Applied'];
   return (
     <div className="proposal">
       <span className="proposal-label">{action.label || action.type}</span>
-      <button type="button" className="btn btn-sm btn-primary" onClick={apply} disabled={state !== ''}>{state === 'done' ? (action.type === 'evaluate' ? '✓ Started' : '✓ Applied') : state === 'busy' ? 'Applying…' : action.type === 'evaluate' ? 'Evaluate' : 'Apply'}</button>
+      <button type="button" className="btn btn-sm btn-primary" onClick={apply} disabled={state !== ''}>{state === 'done' ? done : state === 'busy' ? busy : verb}</button>
     </div>
   );
 }
