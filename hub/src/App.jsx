@@ -844,7 +844,7 @@ function Rail({ data, page, stale = false }) {
   return (
     <nav className="rail" aria-label="Pages">
       <a href="#/home" className="rail-logo" title="Home" aria-label="Home">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="5" cy="12" r="3" stroke="currentColor" strokeWidth="1.8" /><path d="M8 12h8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /><circle cx="19" cy="12" r="3" fill="var(--signal)" /></svg>
+        <WeekMark />
       </a>
       {PAGES.map((id) => (
         <a key={id} href={`#/${id}`} className={page === id ? 'rail-item on' : 'rail-item'} aria-label={labels[id]} aria-current={page === id ? 'page' : undefined}>
@@ -1497,6 +1497,27 @@ const chatMark = (name) => {
   const w = name.replace(/[^\p{L}\p{N} ]/gu, '').trim();
   return (w.slice(0, 1).toUpperCase() + w.slice(1, 2).toLowerCase()) || '·';
 };
+// Sidebar logo: the week as seven dots around a disc (Monday at the top, clockwise),
+// today's dot in the accent colour. The other dots are cut out of the disc.
+function WeekMark() {
+  const today = (new Date().getDay() + 6) % 7;
+  const dots = Array.from({ length: 7 }, (_, i) => {
+    const a = (i / 7) * 2 * Math.PI - Math.PI / 2;
+    return { i, x: 12 + 6.3 * Math.cos(a), y: 12 + 6.3 * Math.sin(a) };
+  });
+  const t = dots[today];
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+      <mask id="week-mark-cut">
+        <rect width="24" height="24" fill="#fff" />
+        {dots.map((d) => <circle key={d.i} cx={d.x} cy={d.y} r={d.i === today ? 2.6 : 1.5} fill="#000" />)}
+      </mask>
+      <circle cx="12" cy="12" r="11" fill="currentColor" mask="url(#week-mark-cut)" />
+      <circle cx={t.x} cy={t.y} r="1.9" fill="var(--signal)" />
+    </svg>
+  );
+}
+
 // A company chat shows the company's logo (served from hub-data/logos); anything else, or a
 // company without one, shows the two-letter mark.
 // Favicons come with different amounts of empty margin (some brands' icons are tiny, others fill their box).
