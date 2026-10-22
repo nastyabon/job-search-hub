@@ -49,7 +49,7 @@ const CV_ALLOWED = [
 ];
 export const isCvThread = (thread) => String(thread).startsWith('cv-');
 
-export const ACTION_TYPES = new Set(['status', 'track', 'scan', 'live', 'rank', 'evaluate']);
+export const ACTION_TYPES = new Set(['status', 'track', 'openings', 'scan', 'live', 'rank', 'evaluate']);
 
 const threadFile = (thread) => path.join(CHATS, `${String(thread).replace(/[^a-z0-9-]+/gi, '_').slice(0, 80)}.json`);
 
@@ -127,13 +127,14 @@ function yamlProblem() {
 
 // The hub enforces these in code too (linkedin-guard-hook.mjs): anything else is refused.
 const LINKEDIN_RULES = [
-  '- LinkedIn: you may open a LinkedIn job posting (linkedin.com/jobs/view/…) or profile (linkedin.com/in/…) only if the user sent that exact link in this conversation. One page per link: never follow links from it, never open "people also viewed", search, feed, company pages, posts or profile sub-pages, and never retry with workarounds. The hub refuses anything else.',
+  '- LinkedIn: you may open a LinkedIn page (a job posting, a job search, a profile, …) only if the user sent that exact link in this conversation. One page per link: never follow links from it (not the jobs listed on a search page, not "people also viewed", not the next profile), never open a LinkedIn page the user didn\'t send, and never retry with workarounds. The hub refuses anything else.',
   '- Several links in one message are fine: open them one after another (the hub spaces them out). If there are more than 10, ask before opening them.',
   '- After opening LinkedIn links, report per link: read (and what you used it for), or showed a login page / loaded without the content. For those, say so and ask the user to paste the text. Never guess or fill in from a partial page, a search snippet or memory.',
+  '- A job search page that loads: list the jobs it shows, numbered, one line each (title · company · location · posted, if shown) with the job\'s own link as the page gives it (linkedin.com/jobs/view/<id>), and say how many there were. Then offer two things: add them (all, or the ones the user picks) to New openings, and evaluate one. Adding is a hub-action of type openings. Evaluating needs the full job description, and the only job you may have that for is the one the page showed open (currentJobId): save it and propose evaluate as below. For any other job on the list, ask the user to send its link (you can\'t open it from the list). Never fill in a job from its title alone.',
   '- A LinkedIn link that redirects to a country subdomain (de.linkedin.com/…) is the same link: follow it once.',
 ].join('\n');
 
-// The guard's state for one reply: the LinkedIn job/profile links the user sent in this thread.
+// The guard's state for one reply: the LinkedIn links the user sent in this thread.
 function linkedinGuard(messages) {
   const file = path.join(os.tmpdir(), `hub-li-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}.json`);
   const allowed = [...new Set(messages.filter((m) => m.role === 'user').flatMap((m) => linkedinKeysIn(m.text)))];
@@ -163,7 +164,7 @@ function systemPrompt(context, thread) {
     '```hub-action',
     '{"type":"status","num":1,"status":"Interview","label":"Move Acme to Interview"}',
     '```',
-    'Supported types: status {num, status (Evaluated|Applied|Responded|Assessment|Interview|Offer|Rejected|Discarded|SKIP|Hired)}; track {company, role, date (YYYY-MM-DD, when it really happened), status (usually Applied), url, channel, contact, notes} to add a role that is not in the tracker yet (no evaluation needed; check the tracker first so you never duplicate a row); evaluate {url, company, role, num (tracker # if the role is already there), jd_file (hub-data/jds/<company-slug>-<role-slug>.md: the job description saved by you; required for a LinkedIn link or a pasted description), force (true only when the user asks to evaluate anyway after a pre-check stopped it)} for career-ops\' full evaluation (fit report + tailored CV) when the user asks to evaluate a role or sends a job link to evaluate: never run an evaluation in this chat, the hub runs it in the background after the user clicks the proposal\'s Evaluate button and confirms; scan {}; live {}; rank {}. Always include "label" (for evaluate: "Evaluate <Company> · <Role>").',
+    'Supported types: status {num, status (Evaluated|Applied|Responded|Assessment|Interview|Offer|Rejected|Discarded|SKIP|Hired)}; track {company, role, date (YYYY-MM-DD, when it really happened), status (usually Applied), url, channel, contact, notes} to add a role that is not in the tracker yet (no evaluation needed; check the tracker first so you never duplicate a row); openings {jobs: [{url, company, title, location, posted (YYYY-MM-DD, if shown)}]} to add job links to New openings (career-ops\' pipeline inbox; the hub skips any already there or in the tracker), label "Add N jobs to New openings"; evaluate {url, company, role, num (tracker # if the role is already there), jd_file (hub-data/jds/<company-slug>-<role-slug>.md: the job description saved by you; required for a LinkedIn link or a pasted description), force (true only when the user asks to evaluate anyway after a pre-check stopped it)} for career-ops\' full evaluation (fit report + tailored CV) when the user asks to evaluate a role or sends a job link to evaluate: never run an evaluation in this chat, the hub runs it in the background after the user clicks the proposal\'s Evaluate button and confirms; scan {}; live {}; rank {}. Always include "label" (for evaluate: "Evaluate <Company> · <Role>").',
     '- Evaluating a LinkedIn job link the user sent: the evaluation runs in the background and never opens LinkedIn, so you pass it the text. Open the link once (rules above). If the full job description is there, save it verbatim to hub-data/jds/<company-slug>-<role-slug>.md (a first line "Source: <the link>, read <date>"), then propose evaluate with url and jd_file. If it shows a login page or only part of the job, say so and ask the user to paste the job description; save what they paste the same way. Never write a description from a partial page. A pasted description with no link works the same way (save it, then jd_file).',
     '- Tailoring a CV runs in the panel\'s "Tailor CV" tab (career-ops pdf mode). If the user asks for a CV here, tell them to open that tab; don\'t do it in this chat.',
     'Style: short, plain, no headings for small answers. Say what you changed in one line, with resolved dates.',

@@ -1,11 +1,10 @@
 #!/usr/bin/env node
 // PreToolUse hook for the chats the user talks to (side-panel chat, Tailor CV). It enforces the
 // LinkedIn rules in code:
-//   - a LinkedIn job posting (/jobs/view/<id>) or profile (/in/<name>) opens only if the user sent
-//     that exact link in this conversation, once per link (a redirect to another country subdomain
-//     of the same link is allowed once more);
-//   - every other LinkedIn page (search, feed, company pages, /in/x/details, posts…), lnkd.in short
-//     links and licdn.com are refused;
+//   - a LinkedIn page (job posting, job search, profile…) opens only if the user sent that exact link
+//     in this conversation, once per link (a redirect to another country subdomain of the same link
+//     is allowed once more). Links found on an opened page are never opened: they weren't sent;
+//   - lnkd.in short links and licdn.com are refused;
 //   - LinkedIn fetches are spaced out (a few seconds apart) and capped per reply.
 // Usage (set up by chat.mjs): node linkedin-guard-hook.mjs <state.json>, where state.json is
 // {allowed: [keys], fetched: {key: [hosts]}, last: ms}. Other sites pass through untouched.
@@ -28,14 +27,13 @@ process.stdin.on('end', () => {
   let url = '';
   let host = '';
   try { url = JSON.parse(input).tool_input?.url ?? ''; host = new URL(url).hostname.replace(/\.$/, ''); } catch { process.exit(0); }
-  if (LINKEDIN_OTHER.test(host)) deny(`${host} links are never opened. Ask the user for the full linkedin.com/jobs/view/… or /in/… link, or to paste the page.`);
+  if (LINKEDIN_OTHER.test(host)) deny(`${host} links are never opened. Ask the user for the full linkedin.com link, or to paste the page.`);
   if (!LINKEDIN_HOST.test(host)) process.exit(0); // not LinkedIn: normal rules apply
 
   const key = linkedinKey(url);
-  if (!key) deny('Only a LinkedIn job posting (/jobs/view/…) or profile (/in/…) link that the user sent can be opened. Search, feed, company pages, posts and profile sub-pages never are.');
   let state = { allowed: [], fetched: {}, last: 0 };
   try { state = { ...state, ...JSON.parse(fs.readFileSync(stateFile, 'utf8')) }; } catch { deny('LinkedIn links can only be opened from the hub chat.'); }
-  if (!state.allowed.includes(key)) deny(`The user didn't send this link (${key}) in this conversation, so it isn't opened. Ask them to send it if they want it read.`);
+  if (!state.allowed.includes(key)) deny(`The user didn't send this link (${key}) in this conversation, so it isn't opened. Links found on a page you opened are never opened. Give the user the link and ask them to send it if they want it read.`);
   const hosts = state.fetched[key] ?? [];
   if (hosts.length >= 2 || hosts.includes(host)) deny(`Already opened ${key} once in this reply. Use what it returned; if it was a login page or empty, ask the user to paste the text.`);
   const total = Object.values(state.fetched).reduce((n, h) => n + h.length, 0);

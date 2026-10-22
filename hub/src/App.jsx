@@ -2545,6 +2545,7 @@ const reportHref = (r) => `/api/report?name=${encodeURIComponent(r.reportFile)}`
 const ACTION_RUN = {
   status: (a) => post('status', { num: a.num, status: a.status }),
   track: (a) => post('track', a),
+  openings: (a) => post('openings', { jobs: a.jobs }),
   scan: () => post('scan'),
   live: () => post('live'),
   rank: () => post('rank'),
@@ -2558,11 +2559,15 @@ function ActionButton({ action }) {
       return;
     }
     setState('busy');
-    try { await ACTION_RUN[action.type](action); setState('done'); showToast(`Done: ${action.label}`); } catch (e) { setState(''); showToast(e.message, 'bad'); }
+    try {
+      const r = await ACTION_RUN[action.type](action);
+      setState('done');
+      showToast(action.type === 'openings' ? `Added ${r.added} to New openings${r.skipped?.length ? ` · ${r.skipped.length} already there` : ''}` : `Done: ${action.label}`);
+    } catch (e) { setState(''); showToast(e.message, 'bad'); }
   };
-  // Adding a role ("track") says Add, so it doesn't read as applying to the job.
+  // Adding a role ("track") or jobs ("openings") says Add, so it doesn't read as applying to the job.
   const [verb, busy, doneWord] = action.type === 'evaluate' ? ['Evaluate', 'Applying…', 'Started']
-    : action.type === 'track' ? ['Add', 'Adding…', 'Added']
+    : action.type === 'track' || action.type === 'openings' ? ['Add', 'Adding…', 'Added']
     : ['Apply', 'Applying…', 'Applied'];
   const done = <><Check size={14} className="ico-inline" /> {doneWord}</>;
   return (

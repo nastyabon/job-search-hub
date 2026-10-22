@@ -1,6 +1,7 @@
 // The only writes the dashboard can make. Kept apart from data.mjs (which stays read-only).
 //   - outreach.yml: edited through the `yaml` Document API so comments and order survive.
-//   - career-ops: never edited directly, only through its own CLIs (set-status.mjs, scan.mjs).
+//   - career-ops: never edited directly, only through its own CLIs (set-status.mjs, scan.mjs);
+//     the one exception is adding job links to pipeline.md's ## Pending, the inbox career-ops asks you to paste into.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -272,6 +273,44 @@ export async function trackApplication({ company, role, date = ymd(new Date()), 
   doc.contents.flow = false; // a fresh copy starts as `[]`
   fs.writeFileSync(metaFile, doc.toString({ lineWidth: 0, flowCollectionPadding: false }));
   return { num, company, role, status, date };
+}
+
+// "Add these to New openings" (chat proposal, e.g. the jobs on a LinkedIn search page you sent):
+// one `- [ ] {url} | {company} | {title} | {location} | posted: {date}` line per job under
+// ## Pending in career-ops data/pipeline.md, the inbox its header asks you to paste job URLs into.
+// Jobs already in the pipeline (pending or processed) or the tracker are skipped. Undo restores it.
+export function addOpenings({ jobs = [] }) {
+  const file = path.join(CAREER_OPS, 'data', 'pipeline.md');
+  const before = fs.readFileSync(file, 'utf8');
+  if (!/^## Pending/m.test(before)) throw new Error('pipeline.md has no "## Pending" section');
+  let tracker = '';
+  try { tracker = fs.readFileSync(path.join(CAREER_OPS, 'data', 'applications.md'), 'utf8'); } catch { /* no tracker yet */ }
+  const known = `${before}\n${tracker}`;
+  const jobId = (url) => url.match(/linkedin\.com\/jobs\/view\/(?:[^/?#]*-)?(\d{6,})/i)?.[1];
+  const clean = (v) => String(v ?? '').replace(/[\r\n|]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const lines = [];
+  const skipped = [];
+  for (const j of Array.isArray(jobs) ? jobs : []) {
+    let url = clean(j?.url);
+    if (!/^https?:\/\/\S+$/.test(url)) { skipped.push(clean(j?.title) || url || '?'); continue; }
+    const id = jobId(url);
+    if (id) url = `https://www.linkedin.com/jobs/view/${id}/`; // drop tracking and the country subdomain
+    const seen = id ? new RegExp(`jobs/view/(?:[^/?#\\s|]*-)?${id}\\b`).test(known) : known.includes(url);
+    if (seen || lines.some((l) => l.includes(url))) { skipped.push(clean(j.title) || url); continue; }
+    const posted = /^\d{4}-\d{2}-\d{2}$/.test(String(j.posted ?? '')) ? `posted: ${j.posted}` : '';
+    lines.push(`- [ ] ${[url, clean(j.company), clean(j.title), clean(j.location), posted].filter(Boolean).join(' | ')}`);
+  }
+  if (!lines.length) throw new Error(skipped.length ? 'All of these are already in New openings or the tracker' : 'No job links to add');
+  // Insert after the last line of ## Pending (before the next section), keeping its blank line.
+  const all = before.split('\n');
+  const start = all.findIndex((l) => /^## Pending/.test(l));
+  let end = all.findIndex((l, i) => i > start && /^## /.test(l));
+  if (end === -1) end = all.length;
+  while (end > start + 1 && all[end - 1].trim() === '') end -= 1;
+  all.splice(end, 0, ...(end === start + 1 ? ['', ...lines] : lines));
+  const after = all.join('\n');
+  fs.writeFileSync(file, after);
+  return { added: lines.length, skipped, undo: remember(file, before, after) };
 }
 
 let scanning = null;
