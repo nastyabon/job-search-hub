@@ -35,7 +35,10 @@ If the user is in the wrong place (for example Documents, with the hub in `Docum
    - If anything else fails, read the error, fix what you can, and explain the rest in one plain sentence.
 3. **Claude for the hub.** The hub has Claude built in (its chat, Find, scoring openings, CV tailoring, reading LinkedIn pastes). It runs the `claude` command, which the Claude desktop app doesn't provide. Look at what setup printed under "Still to do":
    - `CLAUDE_CODE_MISSING`: say "The hub needs its own copy of Claude Code. I'll install it; it uses your same Claude plan." Run Anthropic's installer: `curl -fsSL https://claude.ai/install.sh | bash`.
-   - `CLAUDE_CODE_SIGNED_OUT` (or right after installing): say "Now I'll sign the hub in to your Claude account. A Claude page will open in your browser: check it's your account and approve it, then come back and tell me." Run `~/.local/bin/claude auth login --claudeai` (or `claude auth login --claudeai` if `claude` is on PATH) as a background command, since it waits for the browser. When they say it's done, confirm with `claude auth status --text`.
+   - `CLAUDE_CODE_SIGNED_OUT` (or right after installing): say "Now I'll sign the hub in to your Claude account. A Claude page will open in your browser: check it's your account and approve it, then come back and tell me." Run `node hub/scripts/sign-in.mjs` as a background command (it waits for the browser, up to 15 minutes); never ask them to use Terminal for this.
+     - **The browser didn't open:** read the command's output and give them the link after "visit:" as a clickable link: "Open this link, check it's your account and approve it."
+     - **The Claude page shows a code** (it does when they used that link): "Copy the code the page shows and paste it here." Then run `node hub/scripts/sign-in.mjs --code "<what they pasted>"`. Never repeat the code back or save it anywhere else.
+     - The background command ends with `SIGNED_IN` (done), or `SIGN_IN_FAILED` / `SIGN_IN_TIMED_OUT`: start it again; each run gets a new link and an old code won't work.
    - Run `node setup.mjs` again. It should show "Claude Code command …, signed in".
 
 ## 2. Their CV and job targets (career-ops)

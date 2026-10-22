@@ -80,6 +80,7 @@ job-search-hub/
 ## 5. Running the hub
 
 - `npm start` from the project root (`hub/scripts/start.mjs`) → http://127.0.0.1:5199, bound to localhost only. If this hub is already running it just opens it (`/api/whoami` tells it apart from other programs); if another program has 5199 it uses 5299, 5399 or 5499. On a Mac, double-clicking `Start Job Hub.command` does the same. `npm run hub` starts the server directly on 5199 (or `HUB_PORT`).
+- The hub's own Claude: `node hub/scripts/claude-check.mjs` says whether it's installed and signed in; `node hub/scripts/sign-in.mjs` signs it in without Terminal (SETUP.md step 1.3: the link if the browser doesn't open, and `--code` for the code the Claude page shows).
 - `npm test` runs the parser and date tests. `node hub/scripts/week-progress.mjs [YYYY-MM-DD]` prints one week's counts.
 - The page reloads itself when anything in `hub-data/` or `career-ops/data/` changes. Code: `hub/server/data.mjs` (all reads, read-only), `hub/server/profile.mjs` (reads profile.yml), `hub/server/actions.mjs` (the only writes), `hub/vite.config.js` (`/api/data`, `/api/events`, `POST /api/action/*`), `hub/src/App.jsx`.
 - What the page itself can change (same-origin POSTs only):

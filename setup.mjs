@@ -35,7 +35,7 @@ ok('git');
 // The hub's built-in Claude needs the `claude` command. The desktop app doesn't provide it.
 const claude = claudeStatus();
 if (!claude.installed) todo.push('CLAUDE_CODE_MISSING: the `claude` command isn\'t installed. The hub uses it for chat, Find, scoring openings, CV tailoring and LinkedIn pastes. Install it with: curl -fsSL https://claude.ai/install.sh | bash');
-else if (!claude.loggedIn) todo.push('CLAUDE_CODE_SIGNED_OUT: the `claude` command is installed but not signed in. Sign in with: claude auth login --claudeai');
+else if (!claude.loggedIn) todo.push('CLAUDE_CODE_SIGNED_OUT: the `claude` command is installed but not signed in. Sign in with: node hub/scripts/sign-in.mjs (SETUP.md step 1.3)');
 else ok(`Claude Code command (${claude.bin}), signed in`);
 
 // 2. career-ops: a plain clone, never modified, so its own updater keeps working.
