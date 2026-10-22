@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { ArrowUpRight, Briefcase01, Calendar, Check, ChevronDown, ChevronLeft, ChevronLeftDouble, ChevronRightDouble, Home02, SearchMd, Send01, XClose } from '@untitledui/icons';
 import { motion, animate, useMotionValue, useDragControls, useTransform } from 'motion/react';
 
 // Filled from hub-data/profile.yml each time data loads (applyProfile below).
@@ -116,7 +117,7 @@ async function unhideItems(keys, text) {
 function HideButton({ onClick, label }) {
   return (
     <button type="button" className="row-x" onClick={onClick} title={label} aria-label={label}>
-      <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M2 2l6 6M8 2l-6 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+      <XClose size={12} strokeWidth={2.5} />
     </button>
   );
 }
@@ -161,7 +162,7 @@ function Toast() {
       <span>{msg.text}</span>
       {msg.undo && <button type="button" className="toast-btn" onClick={doUndo}>Undo</button>}
       {msg.action && <button type="button" className="toast-btn" onClick={() => { setMsg(null); msg.action.run(); }}>{msg.action.label}</button>}
-      {msg.action && <button type="button" className="toast-x" onClick={() => setMsg(null)} aria-label="Dismiss">✕</button>}
+      {msg.action && <button type="button" className="toast-x" onClick={() => setMsg(null)} aria-label="Dismiss"><XClose size={14} /></button>}
     </div>
   );
 }
@@ -194,7 +195,7 @@ function TickButton({ name, company, done, onStart, onFail }) {
   return (
     <button type="button" className={done ? 'check done' : 'check'} disabled={busy}
       onClick={tick} title="Mark as messaged today (follow up again in 7 days)" aria-label={`Mark ${name} as messaged today`}>
-      <svg viewBox="0 0 12 12" width="9" height="9" aria-hidden="true"><path d="M2.5 6.2l2.2 2.2 4.8-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+      <Check size={10} strokeWidth={3.5} />
     </button>
   );
 }
@@ -326,7 +327,7 @@ function useCollapsed(key) {
 function Toggle({ collapsed, onClick, label, children }) {
   return (
     <button type="button" className="toggle" onClick={onClick} aria-expanded={!collapsed} title={collapsed ? `Show ${label}` : `Hide ${label}`}>
-      <svg className={collapsed ? 'chev closed' : 'chev'} width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M2.5 3.8L5 6.3l2.5-2.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+      <ChevronDown className={collapsed ? 'chev closed' : 'chev'} size={12} strokeWidth={2.5} />
       {children}
     </button>
   );
@@ -476,7 +477,7 @@ function StatusSelect({ row, states = [] }) {
     <label className={busy ? 'status-select busy' : 'status-select'} title="Change status (runs career-ops set-status)">
       <StatusIcon status={current} />
       <span className="status-text">{current}</span>
-      <svg width="8" height="8" viewBox="0 0 8 8" aria-hidden="true"><path d="M1.5 3l2.5 2.5L6.5 3" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" /></svg>
+      <ChevronDown size={11} strokeWidth={2.5} />
       <select value={current} onChange={change} disabled={busy} aria-label={`Status of ${row.company}`}>
         {!states.includes(current) && <option value={current}>{current}</option>}
         {states.map((s) => <option key={s} value={s}>{s}</option>)}
@@ -557,7 +558,7 @@ function Applications({ data }) {
               </span>
               <span className="row-meta">
                 {r.reportFile
-                  ? <a className="src" href={reportHref(r)} target="_blank" rel="noreferrer noopener" onClick={(e) => e.stopPropagation()}>Report ↗</a>
+                  ? <a className="src" href={reportHref(r)} target="_blank" rel="noreferrer noopener" onClick={(e) => e.stopPropagation()}>Report <ArrowUpRight size={12} strokeWidth={2.25} className="ico-inline" /></a>
                   : <EvaluateButton data={data} target={{ url: r.url, num: r.num, company: r.company, role: r.role }} />}
                 {/\d/.test(r.score) && <Chip kind="score">{r.score}</Chip>}
                 {r.channel ? <Chip kind={r.channel}>{label(r.channel)}</Chip> : null}
@@ -619,7 +620,7 @@ function ContactRow({ c, today, inPanel = false }) {
   return (
     <li className={`person-row threaded hue-${relHue(c.relation)}${suggested ? ' suggested' : ''}${cold ? ' is-cold' : ''}`} title={`${label(c.status)}${suggested ? ' · suggested by research, check before writing' : ''}`}>
       {cold
-        ? <span className="check static thread-cold" aria-label="Cold">✕</span>
+        ? <span className="check static thread-cold" aria-label="Cold"><XClose size={10} strokeWidth={3} /></span>
         : <TickButton name={c.name} company={c.company} done={DONE_STATUS.has(c.status)} />}
       <Avatar name={c.name} />
       <span className="row-main">
@@ -628,7 +629,7 @@ function ContactRow({ c, today, inPanel = false }) {
         {c.why && <span className="row-note">{c.why}</span>}
       </span>
       <span className="row-meta">
-        {inPanel && c.source && <a className="src" href={c.source} target="_blank" rel="noreferrer noopener" title={c.source}>source ↗</a>}
+        {inPanel && c.source && <a className="src" href={c.source} target="_blank" rel="noreferrer noopener" title={c.source}>source <ArrowUpRight size={12} strokeWidth={2.25} className="ico-inline" /></a>}
         {c.next_date && !cold && <DueChip date={c.next_date} today={today} />}
       </span>
       <DropButton c={c} />
@@ -825,16 +826,11 @@ function useRoute() {
 
 // ── Icon rail (Fabric) ───────────────────────────────────────────────────
 
-const NAV_ICONS = {
-  home: <><path d="M2.8 7.2L8 3l5.2 4.2V13a.6.6 0 0 1-.6.6H9.6V10H6.4v3.6H3.4a.6.6 0 0 1-.6-.6z" /></>,
-  applications: <><rect x="2.5" y="3" width="11" height="10" rx="2" /><path d="M5 6.5h6M5 9.5h4" /></>,
-  openings: <><circle cx="7" cy="7" r="4.3" /><path d="M10.2 10.2l3.3 3.3" /></>,
-  outreach: <><path d="M2.5 8.5l10.5-5-3.5 10-2-4z" /><path d="M7.5 9.5l5.5-6" /></>,
-  week: <><rect x="2.5" y="3.5" width="11" height="10" rx="2" /><path d="M2.5 6.5h11M5.5 2v3M10.5 2v3" /></>,
+const NAV_ICONS = { home: Home02, applications: Briefcase01, openings: SearchMd, outreach: Send01, week: Calendar };
+const NavIcon = ({ id }) => {
+  const Icon = NAV_ICONS[id];
+  return <Icon size={18} strokeWidth={1.75} />;
 };
-const NavIcon = ({ id }) => (
-  <svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">{NAV_ICONS[id]}</svg>
-);
 
 function Rail({ data, page, stale = false }) {
   const apps = data?.applications;
@@ -914,7 +910,7 @@ function CommandBar({ data, compact = false }) {
   return (
     <div className={compact ? 'cmd compact' : 'cmd'}>
       <div className="cmd-box">
-        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true"><circle cx="7" cy="7" r="4.5" /><path d="M10.5 10.5l3 3" /></svg>
+        <SearchMd size={15} />
         <input ref={input} value={q} onChange={(e) => { setQ(e.target.value); setSel(0); }} onKeyDown={onKeyDown}
           onFocus={() => setFocused(true)} onBlur={() => setTimeout(() => setFocused(false), 150)}
           placeholder={compact ? 'Search or ask Claude…' : 'Search companies, people, roles… or tell Claude an update (“Messaged Sam today”)'}
@@ -1006,7 +1002,7 @@ function TodayRow({ x, today }) {
   return (
     <li className={`todo-row clickable${x.kind === 'done' ? ' done' : ''}${leaving ? ' leaving' : ''}`} onClick={rowClick(open, x.item)}>
       {x.kind === 'done'
-        ? <span className="check done static" aria-label="Messaged today"><svg viewBox="0 0 12 12" width="9" height="9" aria-hidden="true"><path d="M2.5 6.2l2.2 2.2 4.8-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg></span>
+        ? <span className="check done static" aria-label="Messaged today"><Check size={10} strokeWidth={3.5} /></span>
         : x.tick ? <TickButton name={x.name} company={x.company} onStart={startLeave} onFail={() => setLeaving(false)} /> : <span className="check static" title={x.kind === 'find' ? 'Find a person first' : "Application follow-up: tell Claude when it's sent"} />}
       <Avatar name={x.name} large hue={x.kind === 'find' ? 'grey' : undefined} />
       <span className="row-main">
@@ -1127,7 +1123,7 @@ function WeekBars({ data, onOpen }) {
         const body = (
           <>
             <span className="wk-label">{p.label}</span>
-            <span className="wk-count"><b>{p.count}{p.unit ?? ''}</b> / {targetText(p)}{p.unit ?? ''}{hit && <span className="wk-done" title="Target hit"> ✓</span>}</span>
+            <span className="wk-count"><b>{p.count}{p.unit ?? ''}</b> / {targetText(p)}{p.unit ?? ''}{hit && <span className="wk-done" title="Target hit"> <Check size={13} strokeWidth={2.5} className="ico-inline" /></span>}</span>
             <Segments p={p} />
           </>
         );
@@ -1456,7 +1452,7 @@ function BackButton({ back }) {
   if (!back) return null;
   return (
     <button type="button" className="back-btn" onClick={back.go} title={`Back to ${back.label}`}>
-      <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M7.5 2.5L4 6l3.5 3.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+      <ChevronLeft size={14} strokeWidth={2.25} />
       <span>{back.label}</span>
     </button>
   );
@@ -1596,7 +1592,7 @@ function ChatHubPanel({ data, item, onClose, back }) {
       {linked && (
         <div className="hub-ctx">
           <span>Chat about <b>{cur.name}</b></span>
-          <button type="button" className="linkish" onClick={() => open(cur.item)}>Open {cur.item.kind === 'metric' ? 'the target' : cur.name} ↗</button>
+          <button type="button" className="linkish" onClick={() => open(cur.item)}>Open {cur.item.kind === 'metric' ? 'the target' : cur.name} <ArrowUpRight size={12} strokeWidth={2.25} className="ico-inline" /></button>
         </div>
       )}
       <Chat key={active} thread={active} context={chatContext(data, active, cur.item)}
@@ -1612,7 +1608,7 @@ function ChatHubPanel({ data, item, onClose, back }) {
       {(
         <div className={folded ? 'chat-split folded' : 'chat-split'}>
           <nav className="chat-side" aria-label="Chats">
-            <button type="button" className="chat-fold" onClick={() => setFolded(!folded)} title={folded ? 'Keep the list open' : 'Fold the list'} aria-label={folded ? 'Show chat names' : 'Fold the chat list'}>{folded ? '»' : '«'}</button>
+            <button type="button" className="chat-fold" onClick={() => setFolded(!folded)} title={folded ? 'Keep the list open' : 'Fold the list'} aria-label={folded ? 'Show chat names' : 'Fold the chat list'}>{folded ? <ChevronRightDouble size={16} /> : <ChevronLeftDouble size={16} />}</button>
             <ul>
               {recent.map((t) => {
                 const { name } = describeChat(data, t.thread);
@@ -1661,7 +1657,7 @@ function PanelHeader({ onClose, back, title, sub, tier, lead = null, trail = nul
   const grab = useHeaderDrag();
   return (
     <header className="panel-top" onPointerDown={grab}>
-      <button type="button" className="icon-btn" onClick={onClose} aria-label="Close panel">✕</button>
+      <button type="button" className="icon-btn" onClick={onClose} aria-label="Close panel"><XClose size={18} /></button>
       {lead}
       <BackButton back={back} />
       <div className="panel-title">
@@ -1722,7 +1718,7 @@ function ItemPanel({ data, item, onClose, back }) {
           {c && <OutreachState contacts={c.contacts} />}
           {!c && !person && <span className="fact">Not on your outreach list</span>}
           <span className="grow" />
-          {(focusedApp?.url || focusedOpening?.url) && <a className="src" href={focusedApp?.url || focusedOpening?.url} target="_blank" rel="noreferrer noopener">Posting ↗</a>}
+          {(focusedApp?.url || focusedOpening?.url) && <a className="src" href={focusedApp?.url || focusedOpening?.url} target="_blank" rel="noreferrer noopener">Posting <ArrowUpRight size={12} strokeWidth={2.25} className="ico-inline" /></a>}
         </div>
       )}
 
@@ -1737,7 +1733,7 @@ function ItemPanel({ data, item, onClose, back }) {
               {focusedApp.notes && <p className="muted small">{focusedApp.notes}</p>}
               <div className="panel-line chips">
                 {focusedApp.reportFile
-                  ? <a className="btn btn-sm" href={reportHref(focusedApp)} target="_blank" rel="noreferrer noopener">Open report ↗</a>
+                  ? <a className="btn btn-sm" href={reportHref(focusedApp)} target="_blank" rel="noreferrer noopener">Open report <ArrowUpRight size={12} strokeWidth={2.25} className="ico-inline" /></a>
                   : <EvaluateButton data={data} target={{ url: focusedApp.url, num: focusedApp.num, company: focusedApp.company, role: focusedApp.role }} />}
               </div>
               <EvalNote data={data} target={{ url: focusedApp.url, num: focusedApp.num, company: focusedApp.company, role: focusedApp.role }} />
@@ -1771,8 +1767,8 @@ function ItemPanel({ data, item, onClose, back }) {
             {c && c.contacts.length > 0
               ? <ul className="people">{c.contacts.map((p) => <ContactRow key={p.name} c={p} today={data.today} inPanel />)}</ul>
               : <p className="muted small">Nobody at {item.company} yet. Paste a LinkedIn link in the chat to add someone.</p>}
-            <p className="find-alumni"><button type="button" className="linkish small" onClick={() => panel.open({ kind: 'find', company: item.company })}>Who should I contact at {item.company}? ↗</button></p>
-            <p className="find-alumni"><button type="button" className="linkish small" onClick={() => panel.open({ kind: 'people', company: item.company })}>Find people at {item.company} on LinkedIn ↗</button></p>
+            <p className="find-alumni"><button type="button" className="linkish small" onClick={() => panel.open({ kind: 'find', company: item.company })}>Who should I contact at {item.company}? <ArrowUpRight size={12} strokeWidth={2.25} className="ico-inline" /></button></p>
+            <p className="find-alumni"><button type="button" className="linkish small" onClick={() => panel.open({ kind: 'people', company: item.company })}>Find people at {item.company} on LinkedIn <ArrowUpRight size={12} strokeWidth={2.25} className="ico-inline" /></button></p>
           </div>
           {!focusedApp && (ctx.apps.length > 0 || ctx.untracked.length > 0) && (
             <div className="panel-sec">
@@ -1891,7 +1887,7 @@ function MetricBody({ data, metric }) {
           </div>
           <div className="panel-sec"><span className="panel-k">Moved on · {moved.length}</span>
             <NextList people={moved} today={data.today} notes={notes} empty={`Nobody yet: everyone saved is still at ${formerLabels()}.`} />
-            <p className="find-alumni"><button type="button" className="linkish small" onClick={() => open({ kind: 'alumni' })}>Find ex-colleagues who've left ↗</button></p>
+            <p className="find-alumni"><button type="button" className="linkish small" onClick={() => open({ kind: 'alumni' })}>Find ex-colleagues who've left <ArrowUpRight size={12} strokeWidth={2.25} className="ico-inline" /></button></p>
           </div>
           <div className="panel-sec"><span className="panel-k">Still at {formerLabels()} · {stayed.length}</span>
             <NextList people={stayed} today={data.today} notes={notes} empty="Nobody left here." />
@@ -2101,7 +2097,7 @@ function FindPanel({ company, onClose, back }) {
           </span>
           <span className="row-meta">
             {p.relation !== 'other' && <Chip kind="lead">{p.relation === 'hiring-manager' ? 'could hire' : 'recruiter'}</Chip>}
-            {(p.source || p.url) && <a className="src" href={p.source || p.url} target="_blank" rel="noreferrer noopener">{p.url && !p.source ? 'Profile' : 'Source'} ↗</a>}
+            {(p.source || p.url) && <a className="src" href={p.source || p.url} target="_blank" rel="noreferrer noopener">{p.url && !p.source ? 'Profile' : 'Source'} <ArrowUpRight size={12} strokeWidth={2.25} className="ico-inline" /></a>}
           </span>
         </li>
       ))}</ul>
@@ -2336,7 +2332,7 @@ function OverviewPanel({ data, item, onClose, back }) {
             </div>
           )}
           {metric ? <MetricBody data={data} metric={metric} /> : <TierBody data={data} item={item} />}
-          <a href={metric ? '#/week' : tier ? `#/outreach/tier-${tier.tier}` : '#/outreach/network'} className="src">Open the {metric ? 'This week' : 'Outreach'} page ↗</a>
+          <a href={metric ? '#/week' : tier ? `#/outreach/tier-${tier.tier}` : '#/outreach/network'} className="src">Open the {metric ? 'This week' : 'Outreach'} page <ArrowUpRight size={12} strokeWidth={2.25} className="ico-inline" /></a>
         </div>
       )}
       {tab === 'chat' && <Chat key={thread} thread={thread} context={context} hints={hints} contextName={title} title="" />}
@@ -2522,9 +2518,10 @@ function ActionButton({ action }) {
     try { await ACTION_RUN[action.type](action); setState('done'); showToast(`Done: ${action.label}`); } catch (e) { setState(''); showToast(e.message, 'bad'); }
   };
   // Adding a role ("track") says Add, so it doesn't read as applying to the job.
-  const [verb, busy, done] = action.type === 'evaluate' ? ['Evaluate', 'Applying…', '✓ Started']
-    : action.type === 'track' ? ['Add', 'Adding…', '✓ Added']
-    : ['Apply', 'Applying…', '✓ Applied'];
+  const [verb, busy, doneWord] = action.type === 'evaluate' ? ['Evaluate', 'Applying…', 'Started']
+    : action.type === 'track' ? ['Add', 'Adding…', 'Added']
+    : ['Apply', 'Applying…', 'Applied'];
+  const done = <><Check size={14} className="ico-inline" /> {doneWord}</>;
   return (
     <div className="proposal">
       <span className="proposal-label">{action.label || action.type}</span>
@@ -2554,7 +2551,7 @@ function CvTab({ data, ctx }) {
           <span className="panel-k">CVs for {ctx.name}</span>
           {cvs.map((f) => (
             <a key={f.name} className="file-link" href={`/api/cv-file?name=${encodeURIComponent(f.name)}`} target="_blank" rel="noreferrer noopener">
-              <span className="file-ext">{f.name.split('.').pop()}</span>{f.name} ↗
+              <span className="file-ext">{f.name.split('.').pop()}</span>{f.name} <ArrowUpRight size={12} strokeWidth={2.25} className="ico-inline" />
             </a>
           ))}
         </div>
@@ -2742,7 +2739,7 @@ function Chat({ thread, context, initial, initialDraft = '', hints = null, conte
                 {m.actions?.map((a, j) => <ActionButton key={j} action={a} />)}
                 {m.files?.map((f) => (
                   <a key={f} className="file-link" href={`/api/cv-file?name=${encodeURIComponent(f)}`} target="_blank" rel="noreferrer noopener">
-                    <span className="file-ext">{f.split('.').pop()}</span>Open {f} ↗
+                    <span className="file-ext">{f.split('.').pop()}</span>Open {f} <ArrowUpRight size={12} strokeWidth={2.25} className="ico-inline" />
                   </a>
                 ))}
                 {m.changed?.length > 0 && (

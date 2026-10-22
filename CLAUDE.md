@@ -132,6 +132,7 @@ General:
 | "Got an interview at Acme" / "Acme rejected me" | `node set-status.mjs <company or #> Interview` / `Rejected`. Never edit `applications.md` by hand. |
 | After any career-ops evaluation | Add the row to `application-meta.yml` (company + role exactly as in the tracker) and ask: channel and who the human is. |
 | "I also worked at Spotify" / "I'm only looking in Berlin now" | Update `hub-data/profile.yml` (`former_companies`, `location_rules`, …) and, if it affects scanning or evaluation, offer the matching change in career-ops' user layer (`config/profile.yml`, `portals.yml`). |
+| "Set my weekly applications goal to 4 to 6" / "make my warm messages goal 5" | Change that goal under `weekly_targets` in `hub-data/routine.yml` (`warm_messages`, `hiring_manager_messages`, `applications`, `linkedin_posts`, `interview_prep_hours`). A range becomes `{ min: 4, max: 6 }`. A single number becomes that number at both ends: `{ min: 5, max: 5 }`. Keep the comment on that line. Messages and applications count against the new goal from this week. For `linkedin_posts` or `interview_prep_hours`, don't touch this week's file: say the new goal starts next week (the next "start a new week" makes the boxes). Confirm in one line ("Applications: 4–6 a week, from this week" / "LinkedIn posts: 2 a week, from next week"). |
 | "Start a new week" | §7. |
 
 ### 6a. Evaluating a job
