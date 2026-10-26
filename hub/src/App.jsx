@@ -971,11 +971,13 @@ function todayPlan(data) {
     ...data.undated.map((u, i) => ({ key: `u${i}`, hide: `undated:${u.who}|${u.company}`, kind: 'due', tick: true, name: u.who, company: u.company, note: u.action, date: '', item: { company: u.company || u.who, focus: 'person', ref: u.who } })),
   ];
   const dueNames = new Set(due.map((d) => d.name));
-  // Someone pushed to a later day waits until then, and so does everyone not yet messaged
-  // at their company: moving one Acme note to the 28th moves all of Acme.
-  const held = new Set(contacts.filter((c) => c.status === 'to-message' && c.next_date > today).map((c) => c.company));
+  // A company is held until a later date when someone there is pushed to it (moving one Acme
+  // note to the 28th moves all of Acme) or when you're waiting on a reply there (messaged, follow-up
+  // still ahead): its people not messaged yet wait until then. People you already know (ex-colleagues,
+  // 1st-degree connections) still show: a friendly question doesn't compete with the open thread.
+  const held = new Set(contacts.filter((c) => ['to-message', 'messaged'].includes(c.status) && c.next_date > today).map((c) => coKey(c.company)));
   const waiting = contacts
-    .filter((c) => c.status === 'to-message' && !lastContacted(c) && !dueNames.has(c.name) && !held.has(c.company))
+    .filter((c) => c.status === 'to-message' && !lastContacted(c) && !dueNames.has(c.name) && !(c.next_date > today) && (c.known || !held.has(coKey(c.company))))
     .sort((a, b) => a.tier - b.tier || relRank(a) - relRank(b));
   const lonely = (data.outreach.tiers.find((t) => t.tier === 1)?.companies ?? []).filter((c) => c.contacts.length === 0);
   const next = [

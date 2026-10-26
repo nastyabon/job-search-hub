@@ -250,6 +250,16 @@ const range = (target) => (typeof target === 'object' && target
   ? { min: Number(target.min ?? 0), max: Number(target.max ?? target.min ?? 0) }
   : { min: Number(target ?? 0), max: Number(target ?? 0) });
 
+// Names in the connections export, compared like alumni.mjs does. Imported lazily: alumni.mjs
+// imports this file. No export → nobody counts as connected.
+const nameKey = (s) => String(s ?? '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+async function connectionNames() {
+  try {
+    const { readConnections } = await import('./alumni.mjs');
+    return new Set(readConnections().map((c) => nameKey(c.name)));
+  } catch { return new Set(); }
+}
+
 export async function buildPayload(now = new Date(), { followups = true } = {}) {
   const errors = [];
   const profile = loadProfile();
@@ -269,10 +279,14 @@ export async function buildPayload(now = new Date(), { followups = true } = {}) 
   for (const o of pipeline.openings) o.shelved = shelved.has(o.url);
 
   const companies = Array.isArray(outreach.companies) ? outreach.companies : [];
+  // known = someone the user already knows: an ex-colleague or a 1st-degree LinkedIn connection
+  // (Connections.csv). Next up lets them through a company hold.
+  const connected = await connectionNames();
   const contacts = (Array.isArray(outreach.contacts) ? outreach.contacts : []).map((c) => ({
     ...c,
     last_contact: toYmd(c.last_contact),
     next_date: toYmd(c.next_date),
+    known: /^ex-/.test(String(c.relation ?? '')) || connected.has(nameKey(c.name)),
   }));
   const metaRows = Array.isArray(meta) ? meta : [];
 
