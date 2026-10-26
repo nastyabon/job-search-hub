@@ -45,6 +45,8 @@ export function isoWeek(date) {
 
 const inRange = (day, week) => Boolean(day) && day >= week.start && day <= week.end;
 const norm = (s) => String(s ?? '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+// Company names compare without spaces or punctuation: "BlueSky Labs" and "Blue Sky Labs" are one company.
+const coKey = (s) => String(s ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '');
 
 // ── sources ───────────────────────────────────────────────────────────
 
@@ -345,12 +347,12 @@ export async function buildPayload(now = new Date(), { followups = true } = {}) 
   }));
 
   // 4. Outreach: companies by tier, with their contacts; everyone else is "network".
-  const byCompany = new Map(companies.map((c) => [norm(c.name), []]));
+  const byCompany = new Map(companies.map((c) => [coKey(c.name), []]));
   const network = [];
-  for (const c of contacts) (byCompany.get(norm(c.company)) ?? network).push(c);
+  for (const c of contacts) (byCompany.get(coKey(c.company)) ?? network).push(c);
   const tiers = [1, 2, 3].map((tier) => ({
     tier,
-    companies: companies.filter((c) => Number(c.tier) === tier).map((c) => ({ ...c, contacts: byCompany.get(norm(c.name)) })),
+    companies: companies.filter((c) => Number(c.tier) === tier).map((c) => ({ ...c, contacts: byCompany.get(coKey(c.name)) })),
   }));
 
   return {

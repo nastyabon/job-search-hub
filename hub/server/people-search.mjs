@@ -64,7 +64,8 @@ export async function peoplePreview({ text = '', company = '' }) {
   const people = found.filter((p) => p?.name && key(p.name) !== 'linkedin member').map((p) => {
     const degree = ['1st', '2nd', '3rd'].includes(p.degree) ? p.degree : '';
     const c1 = degree === '1st' ? conn.get(key(p.name)) : null;
-    const co = targetName(p.company) ?? targetName(company) ?? p.company ?? '';
+    // No company on the card (a headline without "at X"): it's the company the user searched.
+    const co = targetName(p.company) ?? targetName(company) ?? (String(p.company ?? '').trim() || company || '');
     const mutual = (Array.isArray(p.mutual) ? p.mutual : []).filter(Boolean).map((name) => {
       const saved = contact.get(key(name));
       return { name: saved?.name ?? name, relation: saved?.relation ?? (conn.has(key(name)) ? 'connection' : ''), company: saved?.company ?? conn.get(key(name))?.company ?? '' };

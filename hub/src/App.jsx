@@ -1342,9 +1342,14 @@ function WeekPage({ data }) {
 
 // ── Side panel: the item, its people and notes, and a chat with Claude ──────
 
+// Company names match without case, spaces or punctuation: a job board's "Blue Sky Labs" is the
+// "BlueSky Labs" people were saved under.
+const coKey = (s) => String(s ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+const sameCo = (a, b) => coKey(a) !== '' && coKey(a) === coKey(b);
+
 function findCompany(data, name) {
   for (const t of data.outreach.tiers) {
-    const c = t.companies.find((x) => x.name.toLowerCase() === String(name).toLowerCase());
+    const c = t.companies.find((x) => sameCo(x.name, name));
     if (c) return c;
   }
   return null;
@@ -1354,12 +1359,14 @@ function panelContext(data, item) {
   if (!item || item.global) return null;
   const name = item.company;
   const company = findCompany(data, name);
-  const apps = data.applications.ok ? data.applications.rows.filter((r) => r.company.toLowerCase() === name.toLowerCase()) : [];
-  const untracked = data.applications.untracked.filter((u) => u.company.toLowerCase() === name.toLowerCase());
-  const openings = data.pipeline.openings.filter((o) => o.company.toLowerCase() === name.toLowerCase());
+  const apps = data.applications.ok ? data.applications.rows.filter((r) => sameCo(r.company, name)) : [];
+  const untracked = data.applications.untracked.filter((u) => sameCo(u.company, name));
+  const openings = data.pipeline.openings.filter((o) => sameCo(o.company, name));
+  // Everyone saved at this company, also when it isn't on the outreach list (they sit under Network).
+  const people = allContacts(data).filter((p) => sameCo(p.company, name));
   const person = item.focus === 'person' ? allContacts(data).find((c) => c.name === item.ref) : null;
   const notes = data.notes?.[noteSlug(name)] ?? [];
-  return { company, apps, untracked, openings, person, notes, focus: item.focus, ref: item.ref, name };
+  return { company, apps, untracked, openings, people, person, notes, focus: item.focus, ref: item.ref, name };
 }
 
 // A short name for a panel view, used on the Back button.
@@ -1807,8 +1814,8 @@ function ItemPanel({ data, item, onClose, back }) {
           )}
           <div className="panel-sec">
             <span className="panel-k">People</span>
-            {c && c.contacts.length > 0
-              ? <ul className="people">{c.contacts.map((p) => <ContactRow key={p.name} c={p} today={data.today} inPanel />)}</ul>
+            {ctx.people.length > 0
+              ? <ul className="people">{ctx.people.map((p) => <ContactRow key={p.name} c={p} today={data.today} inPanel />)}</ul>
               : <p className="muted small">Nobody at {item.company} yet. Paste a LinkedIn link in the chat to add someone.</p>}
             <p className="find-alumni"><button type="button" className="linkish small" onClick={() => panel.open({ kind: 'find', company: item.company })}>Who should I contact at {item.company}? <ArrowUpRight size={12} strokeWidth={2.25} className="ico-inline" /></button></p>
             <p className="find-alumni"><button type="button" className="linkish small" onClick={() => panel.open({ kind: 'people', company: item.company })}>Find people at {item.company} on LinkedIn <ArrowUpRight size={12} strokeWidth={2.25} className="ico-inline" /></button></p>
