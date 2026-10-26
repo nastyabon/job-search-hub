@@ -288,8 +288,10 @@ export async function buildPayload(now = new Date(), { followups = true } = {}) 
     due.push({ source: 'career-ops', date: date || today, overdue: e.urgency === 'overdue' || (date && date < today), who: e.contacts?.[0]?.name ?? '', company: e.company, action: `Follow up on application (${e.status}${e.followupCount ? `, ${e.followupCount} sent` : ''})`, relation: 'application', channel: e.via ?? '' });
   }
   due.sort((a, b) => a.date.localeCompare(b.date));
+  // Undated follow-ups are for people already messaged. Someone not messaged yet (to-message, e.g.
+  // "ask X for an intro" from a people search) goes through Next up, with its daily pace and company hold.
   const undated = contacts
-    .filter((c) => c.next_action && !c.next_date && c.status !== 'cold')
+    .filter((c) => c.next_action && !c.next_date && c.status !== 'cold' && c.status !== 'to-message')
     .map((c) => ({ who: c.name, company: c.company, action: c.next_action }));
 
   // 2. This week
