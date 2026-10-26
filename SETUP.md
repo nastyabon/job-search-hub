@@ -56,6 +56,7 @@ career-ops has its own onboarding. Follow `career-ops/AGENTS.md` → "First Run 
   Write `career-ops/cv.md` in the shape career-ops expects. Never add anything that isn't in what they gave you.
 
   **Then read it back. Don't skip this; it's how they learn to trust the tool.** Show a short summary of what you captured (each job with title, company and dates; education; skills; any numbers you kept) and ask: "Here's what I captured from your CV. What's wrong or missing?" Fix what they say before moving on.
+- **Their CV's look (only when they gave a PDF):** ask "Do you want the CVs I tailor for each job to look exactly like this one? I'll rebuild its design once (about 5 minutes); otherwise they use a clean standard layout." Yes → CLAUDE.md §6c now. No, or not sure → skip; they can say "keep my CV design" any time.
 - **Profile and scanner:** ask for name, email, city and time zone, the roles they want, salary range and currency, and where they'll work (city, country, remote, relocation). Write both files with `node onboard-write.mjs` as AGENTS.md describes.
 - Then the deeper questions from its Step 5 (what makes them good, deal-breakers, best achievement).
 - **Fill in `career-ops/modes/_profile.md`** from their CV and answers: their target roles as the archetypes, how to frame them, comp targets and location policy. The shipped template targets AI and engineering roles, so until it's theirs every evaluation scores against the wrong targets. Don't skip it; `node doctor.mjs --json` lists it under `unpersonalized` until it's done.

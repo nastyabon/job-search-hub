@@ -46,6 +46,7 @@ const CV_ALLOWED = [
   // Edit(path) rules cover every file-writing tool (Write included).
   'Edit(./output/**)', 'Edit(./jds/**)', 'Edit(//tmp/cv-*)', 'Edit(//private/tmp/cv-*)',
   ...CV_SCRIPTS.map((n) => `Bash(node ${n}.mjs:*)`), 'Bash(npm run jd:similarity:*)',
+  'Bash(node ../hub/scripts/cv-design.mjs copy:*)',
 ];
 export const isCvThread = (thread) => String(thread).startsWith('cv-');
 
@@ -184,6 +185,25 @@ export function hardRules() {
   } catch { return ''; }
 }
 
+// The user's own CV design (hub-data/cv-design/, made once from their PDF, CLAUDE.md §6c with hub/scripts/cv-design.mjs):
+// when it exists, Tailor CV changes the words in a copy of it instead of filling career-ops' template.
+function cvDesignRules() {
+  const file = path.join(HUB_DATA, 'cv-design', 'cv.html');
+  if (!fs.existsSync(file)) return '';
+  const html = fs.readFileSync(file, 'utf8');
+  const meta = (name) => html.match(new RegExp(`<meta name="${name}" content="([^"]*)"`))?.[1] ?? '';
+  const format = meta('cv-format') || 'a4';
+  const pages = meta('cv-pages') || '2';
+  return [
+    `The user's own CV design is set up (../hub-data/cv-design/cv.html: their CV as HTML, rebuilt from their PDF), so the PDF keeps their design. Follow pdf mode for what to say (reading the job description, choosing and rewording from cv.md, keywords, the truth rules), but for the HTML and PDF steps do this instead of the JSON payload and build-cv-html.mjs:`,
+    '1. `node ../hub/scripts/cv-design.mjs copy output/cv-<candidate>[-<report>]-<company>.html` copies it (with its style and fonts linked).',
+    '2. Edit only the words in that copy, the text between the tags: headline, summary, bullets, skills. Never change tags, classes, attributes, links or CSS, never add or remove a section, never reorder sections. Inside one role you may reorder, shorten or drop bullets. Every fact comes from cv.md; if cv.md says something different from cv.html, cv.md wins (tell the user).',
+    `3. Keep it to ${pages} page${pages === '1' ? '' : 's'}: keep each bullet about as long as the one it replaces.`,
+    `4. \`node generate-pdf.mjs output/<that>.html output/<that>-<YYYY-MM-DD>.pdf --format=${format} --max-pages=${pages}\` (this runs the fact gate). If it says the CV is longer than ${pages} page${pages === '1' ? '' : 's'}, shorten and run it again.`,
+    'Only if the user asks for career-ops\' own template instead, use the normal JSON payload path.',
+  ].join('\n');
+}
+
 function cvPrompt(context) {
   const p = loadProfile();
   const who = p.name ? p.first_name : 'the user';
@@ -202,6 +222,7 @@ function cvPrompt(context) {
     LINKEDIN_RULES,
     '- When the pipeline needs their decision (skill gaps before drafting, title mismatches, an unmatched entry), stop and ask in plain words, one short list. They answer in this chat and you continue from there.',
     '- Use the PDF name output/cv-<candidate>[-<report>]-<company>-<YYYY-MM-DD>.pdf.',
+    cvDesignRules(),
     'Final reply, short: the PDF path (output/....pdf, written out in full), page count, keyword coverage if it ran, gaps still open, and 3 to 5 bullets on what was tailored compared with the master CV. No headings for small answers.',
   ].filter(Boolean).join('\n');
 }
