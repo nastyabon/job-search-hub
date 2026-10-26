@@ -11,8 +11,9 @@
 //
 // CV threads (`cv-<company>`, the panel's "Tailor CV" tab) run a second, separate profile: a
 // session inside career-ops/ that follows its own pdf mode (cv.md → tailored HTML → fact gate →
-// PDF). It may write only its outputs (output/, jds/, /tmp/cv-*), never cv.md, config, modes or
-// scripts, and runs only the CV scripts below. Opening the tab and sending is the user's explicit go.
+// PDF), and its cover mode for a cover letter (generate-cover-letter.mjs, same PDF step and fact gate).
+// It may write only its outputs (output/, jds/, /tmp/cv-*, /tmp/cover-payload-*), never cv.md, config,
+// modes or scripts, and runs only the CV scripts below. Opening the tab and sending is the user's explicit go.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -40,11 +41,12 @@ const ALLOWED = [
 
 const CV_SCRIPTS = ['jd-skill-gap', 'cv-title-check', 'verify-cv-structure', 'cv-templates', 'build-cv-html', 'verify-cv-facts',
   'generate-pdf', 'keyword-match', 'verify-ats', 'ats-payload', 'find', 'fetch-jd', 'archive-posting', 'check-liveness',
-  'cv-sync-check', 'jd-similarity', 'mark-pdf-ready'];
+  'cv-sync-check', 'jd-similarity', 'mark-pdf-ready', 'generate-cover-letter'];
 const CV_ALLOWED = [
   'Read', 'Grep', 'Glob', 'WebSearch', 'WebFetch', 'Skill(career-ops)',
   // Edit(path) rules cover every file-writing tool (Write included).
   'Edit(./output/**)', 'Edit(./jds/**)', 'Edit(//tmp/cv-*)', 'Edit(//private/tmp/cv-*)',
+  'Edit(//tmp/cover-payload-*)', 'Edit(//private/tmp/cover-payload-*)',
   ...CV_SCRIPTS.map((n) => `Bash(node ${n}.mjs:*)`), 'Bash(npm run jd:similarity:*)',
   'Bash(node ../hub/scripts/cv-design.mjs copy:*)',
 ];
@@ -169,7 +171,7 @@ function systemPrompt(context, thread) {
     '```',
     'Supported types: status {num, status (Evaluated|Applied|Responded|Assessment|Interview|Offer|Rejected|Discarded|SKIP|Hired)}; track {company, role, date (YYYY-MM-DD, when it really happened), status (usually Applied), url, channel, contact, notes} to add a role that is not in the tracker yet (no evaluation needed; check the tracker first so you never duplicate a row); openings {jobs: [{url, company, title, location, posted (YYYY-MM-DD, if shown)}]} to add job links to New openings (career-ops\' pipeline inbox; the hub skips any already there or in the tracker), label "Add N jobs to New openings"; evaluate {url, company, role, num (tracker # if the role is already there), jd_file (hub-data/jds/<company-slug>-<role-slug>.md: the job description saved by you; required for a LinkedIn link or a pasted description), force (true only when the user asks to evaluate anyway after a pre-check stopped it)} for career-ops\' full evaluation (fit report + tailored CV) when the user asks to evaluate a role or sends a job link to evaluate: never run an evaluation in this chat, the hub runs it in the background after the user clicks the proposal\'s Evaluate button and confirms; scan {}; live {}; rank {}. Always include "label" (for evaluate: "Evaluate <Company> · <Role>").',
     '- Evaluating a LinkedIn job link the user sent: the evaluation runs in the background and never opens LinkedIn, so you pass it the text. Open the link once (rules above). If the full job description is there, save it verbatim to hub-data/jds/<company-slug>-<role-slug>.md (a first line "Source: <the link>, read <date>"), then propose evaluate with url and jd_file. If it shows a login page or only part of the job, say so and ask the user to paste the job description; save what they paste the same way. Never write a description from a partial page. A pasted description with no link works the same way (save it, then jd_file).',
-    '- Tailoring a CV runs in the panel\'s "Tailor CV" tab (career-ops pdf mode). If the user asks for a CV here, tell them to open that tab; don\'t do it in this chat.',
+    '- Tailoring a CV and writing a cover letter run in the panel\'s "Tailor CV" tab (career-ops pdf and cover modes, which make the PDF). If the user asks for either here, tell them to open that tab; don\'t do it in this chat.',
     'Style: short, plain, no headings for small answers. Say what you changed in one line, with resolved dates.',
   ].join('\n');
 }
@@ -204,6 +206,20 @@ function cvDesignRules() {
   ].join('\n');
 }
 
+// Cover letters run in the same tab: career-ops' cover mode, then generate-cover-letter.mjs. The
+// paper size follows the user's own CV design when there is one, otherwise career-ops' page_format.
+function coverRules() {
+  const design = path.join(HUB_DATA, 'cv-design', 'cv.html');
+  const format = fs.existsSync(design) ? fs.readFileSync(design, 'utf8').match(/<meta name="cv-format" content="([^"]*)"/)?.[1] ?? '' : '';
+  return [
+    'Cover letters: when the user asks for one, follow career-ops\' cover mode (modes/cover.md) step by step: research, keywords, gaps and the four questions, asked here in plain words; then the draft in this chat. Make the PDF only after they approve the draft.',
+    '- Payload at /tmp/cover-payload-<company-slug>.json (nowhere else), with output_path output/cover-<candidate>[-<report>]-<company-slug>-<YYYY-MM-DD>.pdf.',
+    `- \`node generate-cover-letter.mjs --payload /tmp/cover-payload-<company-slug>.json${format ? ` --format=${format}` : ''}\` (add \`--report NNN\` when the role has a report). It runs the fact gate: a blocked claim gets reworded from real cv.md content, never added to cv.md or cv-facts.json.`,
+    '- Skip the slug-mode step that writes into the report (reports/ are read-only here); mention the PDF in your reply instead.',
+    '- Final reply for a letter: the PDF path (output/....pdf, written out in full), word count, and keywords or gaps the letter left out.',
+  ].join('\n');
+}
+
 function cvPrompt(context) {
   const p = loadProfile();
   const who = p.name ? p.first_name : 'the user';
@@ -223,6 +239,7 @@ function cvPrompt(context) {
     '- When the pipeline needs their decision (skill gaps before drafting, title mismatches, an unmatched entry), stop and ask in plain words, one short list. They answer in this chat and you continue from there.',
     '- Use the PDF name output/cv-<candidate>[-<report>]-<company>-<YYYY-MM-DD>.pdf.',
     cvDesignRules(),
+    coverRules(),
     'Final reply, short: the PDF path (output/....pdf, written out in full), page count, keyword coverage if it ran, gaps still open, and 3 to 5 bullets on what was tailored compared with the master CV. No headings for small answers.',
   ].filter(Boolean).join('\n');
 }

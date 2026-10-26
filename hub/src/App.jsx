@@ -2592,11 +2592,15 @@ function CvTab({ data, ctx }) {
     text: `Tailor my CV for ${r.role} at ${ctx.name} (${r.extra}).${r.url ? ` Posting: ${r.url}` : ' I\'ll paste the job description.'}`,
   }));
   if (!hints.length) hints.push({ label: 'Tailor my CV (I\'ll paste the job description)', text: `Tailor my CV for a role at ${ctx.name}. I'll paste the job description next.` });
+  const top = roles[0];
+  hints.push(top
+    ? { label: `Write a cover letter for ${top.role}`, text: `Write a cover letter for ${top.role} at ${ctx.name} (${top.extra}).${top.url ? ` Posting: ${top.url}` : ' I\'ll paste the job description.'}` }
+    : { label: 'Write a cover letter (I\'ll paste the job description)', text: `Write a cover letter for a role at ${ctx.name}. I'll paste the job description next.` });
   return (
     <>
       {cvs.length > 0 && (
         <div className="cv-files">
-          <span className="panel-k">CVs for {ctx.name}</span>
+          <span className="panel-k">CVs and letters for {ctx.name}</span>
           {cvs.map((f) => (
             <a key={f.name} className="file-link" href={`/api/cv-file?name=${encodeURIComponent(f.name)}`} target="_blank" rel="noreferrer noopener">
               <span className="file-ext">{f.name.split('.').pop()}</span>{f.name} <ArrowUpRight size={12} strokeWidth={2.25} className="ico-inline" />
@@ -2605,7 +2609,7 @@ function CvTab({ data, ctx }) {
         </div>
       )}
       <Chat thread={`cv-${slug}`} context={ctx} hints={hints} title="Tailor CV with career-ops"
-        intro="Runs career-ops' CV pipeline on your locked cv.md: tailors to the job description, blocks anything not in your CV, then makes the PDF. Takes a few minutes; it asks you when it needs a decision."
+        intro="Runs career-ops' CV pipeline on your locked cv.md: tailors to the job description, blocks anything not in your CV, then makes the PDF. Ask for a cover letter here too: it drafts it with you first, then makes the PDF. Takes a few minutes; it asks you when it needs a decision."
         placeholder={`Name the ${ctx.name} role, paste a job description, or answer Claude…`} />
     </>
   );
