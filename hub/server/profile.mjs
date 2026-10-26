@@ -40,8 +40,10 @@ export function loadProfile() {
   return p;
 }
 
-export const isWarm = (relation) => /^ex-/.test(String(relation ?? ''));
-export const warmNote = (p) => p.former_companies.map((f) => `ex-${f.label}`).join(' / ') || 'past colleagues';
+// Warm = people who know the user: ex-colleagues (`ex-<company>`) plus anyone they mark `friend`
+// (knows them well without having worked together).
+export const isWarm = (relation) => /^ex-/.test(String(relation ?? '')) || relation === 'friend';
+export const warmNote = () => 'ex-colleagues, friends';
 
 // "Wednesday 22 October 2026 (Europe/Lisbon)", in the profile's time zone.
 export function todayLine(p = loadProfile()) {

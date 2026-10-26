@@ -16,13 +16,14 @@ const LABEL = {
   'to-message': 'To message', messaged: 'Messaged', replied: 'Replied', 'intro-made': 'Intro made', 'reference-yes': 'Will be a reference', cold: 'Cold',
   researching: 'Researching', 'to-contact': 'To contact', contacted: 'Contacted', 'in-conversation': 'In conversation', applied: 'Applied', parked: 'Parked',
   referral: 'Referral', 'hiring-manager': 'Hiring manager', 'recruiter-inbound': 'Recruiter came to me', recruiter: 'Recruiter',
-  other: 'Other',
+  friend: 'Knows you', other: 'Other',
 };
 const label = (v) => LABEL[String(v ?? '').toLowerCase()] ?? v;
 // Thread colour for a person: the same hue as their channel / target.
 const REL_HUE = { 'hiring-manager': 'violet', recruiter: 'teal', 'recruiter-inbound': 'teal', referral: 'green' };
-// Warm = an ex-colleague: relation `ex-<company>` from profile.yml's former_companies.
-const isWarm = (r) => /^ex-/.test(String(r ?? ''));
+// Warm = people who know you: an ex-colleague (relation `ex-<company>` from profile.yml's
+// former_companies) or someone you mark `friend` (knows you well, never worked together).
+const isWarm = (r) => /^ex-/.test(String(r ?? '')) || r === 'friend';
 const relHue = (r) => REL_HUE[r] ?? (isWarm(r) ? 'amber' : 'grey');
 const dedupeList = (s) => [...new Set(String(s ?? '').split(/,\s*/).filter(Boolean))].join(', ');
 const TIER_NAMES = {};
@@ -1873,7 +1874,7 @@ function NextList({ people, today, empty, notes = null }) {
 }
 
 const METRIC_INFO = {
-  warm_messages: { how: 'Counts every date in a warm contact\'s "contacted" list this week (an ex-colleague: relation ex-<company>).', hints: ['Who in my network should I message this week?', 'Draft a warm note to an ex-colleague', 'Add an ex-colleague as a contact'] },
+  warm_messages: { how: 'Counts every date in a warm contact\'s "contacted" list this week (ex-colleagues, relation ex-<company>, and people who know you well, relation friend).', hints: ['Who in my network should I message this week?', 'Draft a warm note to an ex-colleague', 'Add an ex-colleague as a contact'] },
   hiring_manager_messages: { how: 'Counts messages to contacts with relation hiring-manager this week.', hints: ['Which hiring manager should I write to first?', 'Draft a note to the hiring manager I saved last', 'Find the team lead at one of my tier-1 companies'] },
   applications: { how: 'Counts roles moved to Applied in career-ops this week. Each one should have a human attached.', hints: ['Which evaluated role should I apply to next?', 'Which application still has no human attached?', 'Evaluate a job link I paste'] },
   linkedin_posts: { how: 'Ticked boxes under "LinkedIn posts" in this week\'s file.', hints: ['Suggest a LinkedIn post from my best project', 'Draft a short post about what I am looking for'] },
@@ -1931,7 +1932,8 @@ function MetricBody({ data, metric }) {
       const notes = new Map([...routes].map(([name, cos]) => [name, `can introduce you at ${cos.join(', ')}`]));
       const byRoute = (a, b) => routes.has(b.name) - routes.has(a.name);
       const moved = next.filter(movedOn).sort(byRoute);
-      const stayed = next.filter((c) => !movedOn(c)).sort(byRoute);
+      const friends = next.filter((c) => c.relation === 'friend').sort(byRoute);
+      const stayed = next.filter((c) => c.relation !== 'friend' && !movedOn(c)).sort(byRoute);
       return (
         <>
           <div className="panel-sec"><span className="panel-k">Sent this week · {sent.length}</span>
@@ -1940,6 +1942,9 @@ function MetricBody({ data, metric }) {
           <div className="panel-sec"><span className="panel-k">Moved on · {moved.length}</span>
             <NextList people={moved} today={data.today} notes={notes} empty={`Nobody yet: everyone saved is still at ${formerLabels()}.`} />
             <p className="find-alumni"><button type="button" className="linkish small" onClick={() => open({ kind: 'alumni' })}>Find ex-colleagues who've left <ArrowUpRight size={12} strokeWidth={2.25} className="ico-inline" /></button></p>
+          </div>
+          <div className="panel-sec"><span className="panel-k">Know you well · {friends.length}</span>
+            <NextList people={friends} today={data.today} notes={notes} empty="Nobody marked yet. Tell Claude who knows you well (&quot;Sam is a friend&quot;) and they count as warm." />
           </div>
           <div className="panel-sec"><span className="panel-k">Still at {formerLabels()} · {stayed.length}</span>
             <NextList people={stayed} today={data.today} notes={notes} empty="Nobody left here." />
@@ -1954,7 +1959,7 @@ function MetricBody({ data, metric }) {
           {sent.length === 0 ? <p className="muted small">None yet.</p> : <ul className="people">{sent.map(({ c, d }) => <PersonLine key={`${c.name}-${d}`} c={c} today={data.today} date={d} />)}</ul>}
         </div>
         <div className="panel-sec"><span className="panel-k">Who to message next · {next.length}</span>
-          <NextList people={next} today={data.today} empty={metric.key === 'warm_messages' ? 'No other ex-colleagues saved yet. Your LinkedIn connections export would fill this in.' : 'No hiring managers waiting.'} />
+          <NextList people={next} today={data.today} empty={metric.key === 'warm_messages' ? 'No other ex-colleagues or friends saved yet. Your LinkedIn connections export would fill this in.' : 'No hiring managers waiting.'} />
           <p className="muted small">Tick the circle when you've sent one.</p>
         </div>
       </>

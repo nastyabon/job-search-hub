@@ -286,7 +286,7 @@ export async function buildPayload(now = new Date(), { followups = true } = {}) 
     ...c,
     last_contact: toYmd(c.last_contact),
     next_date: toYmd(c.next_date),
-    known: /^ex-/.test(String(c.relation ?? '')) || connected.has(nameKey(c.name)),
+    known: isWarm(c.relation) || connected.has(nameKey(c.name)),
   }));
   const metaRows = Array.isArray(meta) ? meta : [];
 

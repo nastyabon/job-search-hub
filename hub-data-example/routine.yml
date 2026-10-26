@@ -1,6 +1,6 @@
 # Weekly routine targets. Change the numbers to what's realistic for you.
 weekly_targets:
-  warm_messages: { min: 5, max: 8 }      # ex-colleagues
+  warm_messages: { min: 5, max: 8 }      # people who know you: ex-colleagues + friends
   hiring_manager_messages: 5
   applications: { min: 3, max: 5 }       # each paired with a human
   linkedin_posts: 1
