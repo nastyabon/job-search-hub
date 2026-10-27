@@ -40,6 +40,7 @@ import { runChat, readThread, undoChat, chatBusy, listThreads } from './server/c
 //   GET  /api/chats             recent chat threads (for the General panel)
 //   GET  /api/logo?company=…  a company's icon (hub-data/logos, fetched once from its own site)
 //   GET  /api/cv-file?name=…    a tailored CV from career-ops/output
+//   GET  /api/prep-file?name=…  an interview prep file from career-ops/interview-prep
 //   POST /api/chat              {thread, message, context}  streams NDJSON events (see server/chat.mjs)
 const ACTIONS = { contacted: markContacted, undo, status: setAppStatus, live: checkLive, scan: runScan, rank: rankOpenings, note: addNote, week: weekTick, track: trackApplication, openings: addOpenings, hide: hideItem, unhide: unhideItem, drop: dropContact, 'chat-undo': undoChat, 'alumni-preview': alumniPreview, 'alumni-add': alumniAdd, 'people-preview': peoplePreview, 'people-add': peopleAdd, 'posts-preview': postsPreview, 'posts-add': postsAdd, evaluate: startEvaluation, 'find-preview': findPreview, 'find-add': findAdd };
 
@@ -169,6 +170,19 @@ function hubData() {
         }
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
         res.end(reportHtml(fs.readFileSync(file, 'utf8'), name.replace(/\.md$/, '')));
+      });
+
+      // An interview prep file from career-ops/interview-prep (or its sessions/), as plain text to read or copy.
+      server.middlewares.use('/api/prep-file', (req, res) => {
+        const name = new URL(req.url, 'http://x').searchParams.get('name') ?? '';
+        const file = path.join(CAREER_OPS, 'interview-prep', name);
+        if (!/^(sessions\/)?[\w.-]+\.md$/.test(name) || !fs.existsSync(file)) {
+          res.statusCode = 404;
+          res.end('Not found');
+          return;
+        }
+        res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+        fs.createReadStream(file).pipe(res);
       });
 
       // Recent chats (read-only), for the General panel's list.

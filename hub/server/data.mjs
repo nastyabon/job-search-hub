@@ -198,6 +198,29 @@ function readCvFiles() {
   } catch { return []; }
 }
 
+// What career-ops' interview modes have written, for the Interview prep steps: role files
+// (interview-prep/<company>-<role>.md: the prep doc starts `# Interview Intel:`, plan and debrief append `## Prep Plan` / `## Round N Debrief`
+// sections to them) and session transcripts (sessions/<company>-<role>-<round>-<date>.md, `source:`
+// practice | debrief in their front matter). The shared banks aren't per company.
+const PREP_SHARED = new Set(['story-bank.md', 'question-bank.md', 'retracted-claims.md', 'interview-prep-guide.md', 'README.md']);
+function readPrepFiles() {
+  const dir = path.join(CAREER_OPS, 'interview-prep');
+  const list = (sub) => {
+    try {
+      return fs.readdirSync(path.join(dir, sub)).filter((n) => n.endsWith('.md') && !PREP_SHARED.has(n)).map((n) => {
+        const file = path.join(dir, sub, n);
+        return { name: sub ? `${sub}/${n}` : n, at: fs.statSync(file).mtime.toISOString(), text: fs.readFileSync(file, 'utf8') };
+      });
+    } catch { return []; }
+  };
+  const files = list('').map(({ name, at, text }) => ({
+    name, at, redflags: name.endsWith('-redflags.md'),
+    doc: /^# Interview Intel:/m.test(text), plan: /^## Prep Plan/m.test(text), debriefs: (text.match(/^## Round \S+ Debrief/gm) ?? []).length,
+  }));
+  const sessions = list('sessions').map(({ name, at, text }) => ({ name, at, source: text.match(/^source:\s*(\S+)/m)?.[1] ?? '' }));
+  return [...files, ...sessions].sort((a, b) => b.at.localeCompare(a.at));
+}
+
 // Items hidden by hand (actions.mjs hideItem): [{key, label, reason, at}].
 function readHidden(errors) {
   if (!fs.existsSync(path.join(HUB_DATA, 'hidden.yml'))) return [];
@@ -398,6 +421,7 @@ export async function buildPayload(now = new Date(), { followups = true } = {}) 
     pipeline,
     hidden,
     cvFiles: readCvFiles(),
+    prepFiles: readPrepFiles(),
     evaluations: readEvaluationsFile(),
     notes: readNotes(),
   };

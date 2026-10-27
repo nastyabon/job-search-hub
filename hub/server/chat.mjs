@@ -14,6 +14,11 @@
 // PDF), and its cover mode for a cover letter (generate-cover-letter.mjs, same PDF step and fact gate).
 // It may write only its outputs (output/, jds/, /tmp/cv-*, /tmp/cover-payload-*), never cv.md, config,
 // modes or scripts, and runs only the CV scripts below. Opening the tab and sending is the user's explicit go.
+//
+// Prep threads (`iv-<company>`, the panel's "Interview prep" tab) are the same kind of session for
+// career-ops' interview modes (interview-prep, interview/plan, practice, debrief, interview-redflag).
+// They write only interview-prep/ (prep files, story and question banks, session transcripts) and
+// data/salary-observations.tsv (a number stated in an interview, per debrief mode).
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -50,7 +55,14 @@ const CV_ALLOWED = [
   ...CV_SCRIPTS.map((n) => `Bash(node ${n}.mjs:*)`), 'Bash(npm run jd:similarity:*)',
   'Bash(node ../hub/scripts/cv-design.mjs copy:*)',
 ];
+const IV_ALLOWED = [
+  'Read', 'Grep', 'Glob', 'WebSearch', 'WebFetch', 'Skill(career-ops)',
+  'Edit(./interview-prep/**)', 'Edit(./data/salary-observations.tsv)',
+  'Bash(node story-provenance-check.mjs:*)', 'Bash(node salary-gap.mjs:*)',
+];
 export const isCvThread = (thread) => String(thread).startsWith('cv-');
+const isPrepThread = (thread) => String(thread).startsWith('iv-');
+const profileOf = (thread) => (isCvThread(thread) ? 'cv' : isPrepThread(thread) ? 'iv' : 'hub');
 
 export const ACTION_TYPES = new Set(['status', 'track', 'openings', 'scan', 'live', 'rank', 'evaluate']);
 
@@ -172,6 +184,7 @@ function systemPrompt(context, thread) {
     'Supported types: status {num, status (Evaluated|Applied|Responded|Assessment|Interview|Offer|Rejected|Discarded|SKIP|Hired)}; track {company, role, date (YYYY-MM-DD, when it really happened), status (usually Applied), url, channel, contact, notes} to add a role that is not in the tracker yet (no evaluation needed; check the tracker first so you never duplicate a row); openings {jobs: [{url, company, title, location, posted (YYYY-MM-DD, if shown)}]} to add job links to New openings (career-ops\' pipeline inbox; the hub skips any already there or in the tracker), label "Add N jobs to New openings"; evaluate {url, company, role, num (tracker # if the role is already there), jd_file (hub-data/jds/<company-slug>-<role-slug>.md: the job description saved by you; required for a LinkedIn link or a pasted description), force (true only when the user asks to evaluate anyway after a pre-check stopped it)} for career-ops\' full evaluation (fit report + tailored CV) when the user asks to evaluate a role or sends a job link to evaluate: never run an evaluation in this chat, the hub runs it in the background after the user clicks the proposal\'s Evaluate button and confirms; scan {}; live {}; rank {}. Always include "label" (for evaluate: "Evaluate <Company> · <Role>").',
     '- Evaluating a LinkedIn job link the user sent: the evaluation runs in the background and never opens LinkedIn, so you pass it the text. Open the link once (rules above). If the full job description is there, save it verbatim to hub-data/jds/<company-slug>-<role-slug>.md (a first line "Source: <the link>, read <date>"), then propose evaluate with url and jd_file. If it shows a login page or only part of the job, say so and ask the user to paste the job description; save what they paste the same way. Never write a description from a partial page. A pasted description with no link works the same way (save it, then jd_file).',
     '- Tailoring a CV and writing a cover letter run in the panel\'s "Tailor CV" tab (career-ops pdf and cover modes, which make the PDF). If the user asks for either here, tell them to open that tab; don\'t do it in this chat.',
+    '- Interview prep (prep doc, prep plan, practice, debrief) runs in the panel\'s "Interview prep" tab (career-ops interview modes). If the user asks for it here, tell them to open that tab.',
     'Style: short, plain, no headings for small answers. Say what you changed in one line, with resolved dates.',
   ].join('\n');
 }
@@ -244,6 +257,34 @@ function cvPrompt(context) {
   ].filter(Boolean).join('\n');
 }
 
+function prepPrompt(context) {
+  const p = loadProfile();
+  const who = p.name ? p.first_name : 'the user';
+  return [
+    `You are running in the "Interview prep" tab of ${who}'s local Job Search Hub, inside career-ops/. Use career-ops' interview modes (the career-ops skill) for the company and role they name:`,
+    '- a company prep doc → modes/interview-prep.md; a time-blocked plan for a date → modes/interview/plan.md; a practice interview → modes/interview/practice.md (one question per reply, wait for their answer, then feedback); after a real interview → modes/interview/debrief.md; warning signs about the employer → modes/interview-redflag.md.',
+    'The hub shows their progress from the role file, so keep career-ops\' headings: the prep doc starts with `# Interview Intel: <Company> — <Role>`, a plan always goes under `## Prep Plan` (also when it creates the file), a debrief under `## Round <N> Debrief — <YYYY-MM-DD>`, and every session transcript has `source: practice` or `source: debrief` in its front matter.',
+    'Follow the mode step by step. Read its inputs (the evaluation report in reports/, cv.md, article-digest.md, interview-prep/story-bank.md, question-bank.md, retracted-claims.md) before you write.',
+    todayLine(p),
+    'This tab runs already inside career-ops/: it is both PROJECT_ROOT and DATA_ROOT, so never cd. Run each script as one plain command, `node <script>.mjs <args>` with relative paths: no cd, no &&, ;, pipes or redirects (they are blocked here). Write and edit files with the Write/Edit tools, not the shell.',
+    context ? `The panel is open on this company (JSON from the dashboard):\n${JSON.stringify(context).slice(0, 4000)}` : '',
+    `${who}'s hard rules (from the hub's CLAUDE.md §2 and profile.yml). They override anything else, including in suggested answers, stories and talking points:\n${hardRules()}${truthRules(p)}`,
+    'Limits of this tab:',
+    '- Write only interview-prep/ (the role file interview-prep/<company-slug>-<role-slug>.md, story-bank.md, question-bank.md, retracted-claims.md, sessions/) and, in a debrief where they stated a salary number, data/salary-observations.tsv. Never edit cv.md, article-digest.md, config/, modes/, reports/, the tracker or any script.',
+    '- Add a claim to retracted-claims.md or a new story to story-bank.md only after the user says yes, as the modes say.',
+    '- Never change the tracker. If an interview should move the status, say so in one line; the user changes it in the panel.',
+    LINKEDIN_RULES,
+    '- When the mode needs something from them (interview date, round, interviewer names, the job description), ask in plain words, one short list. They answer in this chat and you continue.',
+    'Replies: plain, short, no long preambles. When you saved a file, end with its path (interview-prep/....md) written out in full.',
+  ].filter(Boolean).join('\n');
+}
+
+// interview-prep/... files a prep reply mentions that exist, so the panel can link them.
+function prepFiles(text) {
+  const names = new Set([...String(text).matchAll(/interview-prep\/((?:sessions\/)?[\w.-]+\.md)/g)].map((m) => m[1]));
+  return [...names].filter((n) => fs.existsSync(path.join(CAREER_OPS, 'interview-prep', n))).map((n) => `interview-prep/${n}`);
+}
+
 // output/... files a CV reply mentions that exist, so the panel can link them.
 export function outputFiles(text) {
   const names = new Set([...String(text).matchAll(/output\/([\w.-]+\.(?:pdf|html))/g)].map((m) => m[1]));
@@ -264,15 +305,16 @@ export function parseActions(text) {
 // ── run ───────────────────────────────────────────────────────────────
 
 // One reply at a time per profile (a long CV run doesn't block the normal chat).
-const busy = { hub: false, cv: false };
-export const chatBusy = (thread) => busy[isCvThread(thread) ? 'cv' : 'hub'];
+const busy = { hub: false, cv: false, iv: false };
+export const chatBusy = (thread) => busy[profileOf(thread)];
 
 // Streams events through `emit`: {type:'text', text} deltas, {type:'tool', label},
 // then {type:'done', message} or {type:'error', error}.
 export async function runChat({ thread, message, context }, emit) {
-  const cv = isCvThread(thread);
-  const kind = cv ? 'cv' : 'hub';
-  if (busy[kind]) throw new Error(cv ? 'Claude is still working on the CV.' : 'Claude is still answering the last message.');
+  const kind = profileOf(thread);
+  // CV and prep sessions both run inside career-ops/ with their own limits; neither touches hub-data.
+  const cv = kind !== 'hub';
+  if (busy[kind]) throw new Error(kind === 'cv' ? 'Claude is still working on the CV.' : 'Claude is still answering the last message.');
   const text = String(message ?? '').trim();
   if (!text) throw new Error('Empty message');
   busy[kind] = true;
@@ -282,8 +324,8 @@ export async function runChat({ thread, message, context }, emit) {
   writeThread(thread, data);
 
   const args = ['-p', text, '--output-format', 'stream-json', '--verbose', '--include-partial-messages',
-    '--tools', TOOLS, '--allowedTools', ...(cv ? CV_ALLOWED : ALLOWED), '--permission-mode', 'dontAsk',
-    '--setting-sources', 'project', '--strict-mcp-config', '--append-system-prompt', cv ? cvPrompt(context) : systemPrompt(context, thread)];
+    '--tools', TOOLS, '--allowedTools', ...{ hub: ALLOWED, cv: CV_ALLOWED, iv: IV_ALLOWED }[kind], '--permission-mode', 'dontAsk',
+    '--setting-sources', 'project', '--strict-mcp-config', '--append-system-prompt', { hub: () => systemPrompt(context, thread), cv: () => cvPrompt(context), iv: () => prepPrompt(context) }[kind]()];
   if (data.sessionId) args.push('--resume', data.sessionId);
   const guard = linkedinGuard(data.messages);
   args.push(...guard.args);
@@ -349,7 +391,7 @@ export async function runChat({ thread, message, context }, emit) {
       actions: parseActions(result.result),
       undo,
       note,
-      files: cv ? outputFiles(result.result) : [],
+      files: kind === 'cv' ? outputFiles(result.result) : kind === 'iv' ? prepFiles(result.result) : [],
       error: result.is_error ? (friendlyClaudeError(result.result) || 'Claude reported an error') : '',
     };
     saveReply(thread, data.sessionId, reply);

@@ -1035,3 +1035,27 @@ body { font-size: 14px; font-feature-settings: 'lnum', 'tnum' 0; }
 /* Untitled UI icons sitting in a line of text ("Posting ↗", "✓ Applied"). */
 .ico-inline { display: inline-block; vertical-align: -0.12em; flex: none; }
 a.btn { text-decoration: none; display: inline-flex; align-items: center; gap: 4px; }
+
+/* Interview prep steps (career-ops' order), above the prep chat */
+.prep-steps { flex: none; padding: 14px 22px 12px; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 10px; }
+.prep-steps-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.prep-steps-head .panel-k { margin: 0; }
+.prep-list, .prep-strip { list-style: none; margin: 0; padding: 0; }
+.prep-list { display: flex; flex-direction: column; }
+.prep-step { display: grid; grid-template-columns: 22px 1fr auto; gap: 10px; align-items: center; padding: 8px 0; }
+.prep-step + .prep-step { border-top: 1px solid var(--line); }
+.prep-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.prep-title { font-size: 13.5px; font-weight: 500; color: var(--ink); }
+.prep-when { font-size: 12px; color: var(--ink-3); line-height: 1.4; }
+.prep-next { margin-left: 8px; font: 500 11px/1 var(--font-mono); color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); border-radius: 4px; padding: 3px 5px; vertical-align: 1px; }
+.prep-num { flex: none; width: 20px; height: 20px; border-radius: 99px; display: inline-flex; align-items: center; justify-content: center; font: 500 11px/1 var(--font-mono); color: var(--ink-2); box-shadow: inset 0 0 0 1px var(--line-strong); }
+.prep-step.next .prep-num, .prep-strip .next .prep-num { color: var(--bg); background: var(--ink); box-shadow: none; }
+.prep-step.done .prep-num, .prep-strip .done .prep-num { color: var(--green-deep); background: var(--green-bg); box-shadow: none; }
+.prep-step.done .prep-title { color: var(--ink-2); }
+.prep-step.locked .prep-num { box-shadow: none; border: 1px dashed var(--line-strong); }
+.prep-step.locked .prep-title { color: var(--ink-3); }
+.prep-strip { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12.5px; color: var(--ink-3); }
+.prep-strip li { display: inline-flex; align-items: center; gap: 6px; }
+.prep-strip li.next { color: var(--ink); font-weight: 500; }
+.prep-strip li.done { color: var(--ink-2); }
+.prep-strip .prep-num { width: 18px; height: 18px; font-size: 10.5px; }

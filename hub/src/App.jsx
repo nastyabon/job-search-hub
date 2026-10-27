@@ -1401,6 +1401,7 @@ function describeChat(data, id) {
   if (id === 'log') return { name: 'Log', item: { global: true, log: true } };
   if (id.startsWith('co-')) { const c = company(id.slice(3)); return { name: c, item: { company: c, focus: 'company' } }; }
   if (id.startsWith('cv-')) { const c = company(id.slice(3)); return { name: `Tailor CV · ${c}`, item: { company: c, focus: 'cv' } }; }
+  if (id.startsWith('iv-')) { const c = company(id.slice(3)); return { name: `Interview prep · ${c}`, item: { company: c, focus: 'prep' } }; }
   if (id.startsWith('tier-')) return { name: `Tier ${id.slice(5)}`, item: { kind: 'tier', tier: Number(id.slice(5)) } };
   if (id === 'network') return { name: 'Network', item: { kind: 'network' } };
   const m = id.match(/^week-(\d{4}-W\d{2})(?:-(.+))?$/);
@@ -1504,6 +1505,7 @@ const agoShort = (iso) => {
 // Two letters that tell chats apart when the list is folded: An(thropic) vs Ad(yen), W43, CV.
 const chatMark = (name) => {
   if (name.startsWith('Tailor CV')) return 'CV';
+  if (name.startsWith('Interview prep')) return 'IV';
   const week = name.match(/^Week (\d+)/);
   if (week) return `W${week[1]}`;
   const w = name.replace(/[^\p{L}\p{N} ]/gu, '').trim();
@@ -1670,7 +1672,7 @@ function ChatHubPanel({ data, item, onClose, back }) {
                 return (
                   <li key={t.thread}>
                     <button type="button" className={t.thread === active ? 'chat-side-item on' : 'chat-side-item'} onClick={() => pick(t.thread)} title={t.last ?? ''}>
-                      <ChatMark name={name} company={/^(co|cv)-/.test(t.thread) ? name.replace(/^Tailor CV · /, '') : ''} />
+                      <ChatMark name={name} company={/^(co|cv|iv)-/.test(t.thread) ? name.replace(/^(Tailor CV|Interview prep) · /, '') : ''} />
                       <span className="chat-side-name">{name}</span><span className="chat-side-at">{t.at ? agoShort(t.at) : ''}</span>
                       {fresh.has(t.thread) && <span className="chat-new" aria-label="New answer" />}
                     </button>
@@ -1735,8 +1737,8 @@ function ItemPanel({ data, item, onClose, back }) {
   const c = ctx?.company;
   const person = item.focus === 'person' ? ctx?.person : null;
   // Details first; straight to Chat when the panel was opened to say something (Draft, attach,
-  // Ask Claude), and to Tailor CV when asked for.
-  const startTab = item.tab ?? (item.focus === 'cv' ? 'cv' : item.global || item.send || item.draft ? 'chat' : 'details');
+  // Ask Claude), and to Tailor CV / Interview prep when asked for.
+  const startTab = item.tab ?? (item.focus === 'cv' ? 'cv' : item.focus === 'prep' ? 'prep' : item.global || item.send || item.draft ? 'chat' : 'details');
   const [tab, setTab] = useState(startTab);
   useEffect(() => { setTab(startTab); }, [thread, item.focus]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1750,7 +1752,8 @@ function ItemPanel({ data, item, onClose, back }) {
   const detailCount = ctx ? (c?.contacts.length ?? 0) + ctx.notes.length + ctx.apps.length + ctx.untracked.length : 0;
   const tabs = item.global
     ? null
-    : [['details', 'Details', detailCount], ['chat', 'Chat'], ['cv', 'Tailor CV']];
+    : [['details', 'Details', detailCount], ['chat', 'Chat'], ['cv', 'Tailor CV'],
+      ...(ctx && (hasPrep(data, ctx) || item.focus === 'prep') ? [['prep', 'Interview prep']] : [])];
 
   return (
     <aside className="panel" aria-label={item.global ? title : `${item.company} details`}>
@@ -1837,6 +1840,7 @@ function ItemPanel({ data, item, onClose, back }) {
       )}
 
       {tab === 'cv' && ctx && <CvTab key={`cv-${thread}`} data={data} ctx={ctx} />}
+      {tab === 'prep' && ctx && <PrepTab key={`iv-${thread}`} data={data} ctx={ctx} />}
 
       {tab === 'chat' && (
         <Chat key={thread} thread={thread} context={item.log ? LOG_CONTEXT : ctx} initial={item.send} initialDraft={item.draft}
@@ -2631,6 +2635,117 @@ function CvTab({ data, ctx }) {
   );
 }
 
+// "Interview prep": career-ops' interview modes for this company (server/chat.mjs, iv-<slug> thread).
+// The tab shows once a role there is past Applied (Responded and on), or prep files already exist.
+const PREP_STATUSES = /^(responded|assessment|interview|offer)$/i;
+const prepFilesFor = (data, ctx) => (data.prepFiles ?? []).filter((f) => f.name.replace(/^sessions\//, '').startsWith(`${noteSlug(ctx.name)}-`));
+const hasPrep = (data, ctx) => ctx.apps.some((r) => PREP_STATUSES.test(r.status)) || prepFilesFor(data, ctx).length > 0;
+
+// How far the career-ops order has got, from what its modes saved (server/data.mjs readPrepFiles).
+function prepProgress(data, ctx) {
+  const all = prepFilesFor(data, ctx);
+  const files = all.filter((f) => !f.name.startsWith('sessions/'));
+  const sessions = all.filter((f) => f.name.startsWith('sessions/'));
+  const roles = files.filter((f) => !f.redflags);
+  return {
+    files,
+    sessions: sessions.length,
+    doc: roles.some((f) => f.doc),
+    plan: roles.some((f) => f.plan),
+    practices: sessions.filter((f) => /^(practice|mock)$/.test(f.source)).length,
+    debriefs: Math.max(roles.reduce((n, f) => n + f.debriefs, 0), sessions.filter((f) => f.source === 'debrief').length),
+    redflags: files.some((f) => f.redflags),
+  };
+}
+
+const times = (n, word) => (n ? `${n} ${word}${n === 1 ? '' : 's'}` : '');
+
+// The steps in career-ops' order. `text` sends at once; `fill` puts a message in the box for the
+// details only you know (date, round, how it went).
+function prepSteps(st, role, company) {
+  return [
+    { key: 'doc', title: 'Prep doc', when: 'First. Researches their interview process, the likely questions, and which of your stories answer them.', done: st.doc, text: `Make an interview prep doc for ${role}.` },
+    { key: 'plan', title: 'Prep plan', when: 'Once you know the date. Time blocks for your weak spots, and a 15-minute review for right before.', done: st.plan, fill: `Make a prep plan for my interview for ${role}. Date and time: . Round: . Interviewer(s): ` },
+    { key: 'practice', title: 'Practice', when: 'Before the interview, as often as you like. One question at a time, feedback after each answer.', done: st.practices > 0, count: times(st.practices, 'round'), repeat: true, text: `Run a practice interview for ${role}: one question at a time, feedback after each answer.` },
+    { key: 'debrief', title: 'Debrief', when: 'Right after the interview, while you remember it. For the next round, go back to the plan.', done: st.debriefs > 0, count: times(st.debriefs, 'round'), repeat: true, fill: `Debrief my interview for ${role}. Round: . How it went: ` },
+    { key: 'redflags', title: 'Red flags', optional: true, locked: st.sessions === 0,
+      when: st.sessions ? 'Optional, any time: reads every round so far and gives a warning level.' : 'Optional. Opens after your first practice or debrief.',
+      done: st.redflags, repeat: true, text: `Check ${company} for red flags from my interview rounds so far (${role}).` },
+  ];
+}
+
+function PrepSteps({ steps, chat }) {
+  const [open, setOpen] = useState(!chat.started);
+  const main = steps.filter((x) => !x.optional);
+  // Next = the first step not done yet; once all four are, the next round starts at the plan.
+  const next = main.find((x) => !x.done) ?? main[1];
+  const nextRound = main.every((x) => x.done);
+  const run = (x) => { if (x.fill) chat.fill(x.fill); else chat.send(x.text); setOpen(false); };
+  return (
+    <div className={open ? 'prep-steps open' : 'prep-steps'}>
+      <div className="prep-steps-head">
+        <span className="panel-k">Steps, in career-ops' order</span>
+        <button type="button" className="linkish small" onClick={() => setOpen(!open)}>{open ? 'Hide' : 'Show steps'}</button>
+      </div>
+      {open ? (
+        <ol className="prep-list">
+          {steps.map((x, i) => {
+            const isNext = x === next;
+            return (
+              <li key={x.key} className={`prep-step${x.done ? ' done' : ''}${isNext ? ' next' : ''}${x.locked ? ' locked' : ''}`}>
+                <span className="prep-num" aria-hidden="true">{x.done ? <Check size={12} strokeWidth={2.5} /> : x.optional ? '+' : i + 1}</span>
+                <span className="prep-body">
+                  <span className="prep-title">{x.title}{x.count && <span className="muted"> · {x.count}</span>}{isNext && <span className="prep-next">{nextRound ? 'Next round' : 'Next'}</span>}</span>
+                  <span className="prep-when">{x.when}</span>
+                </span>
+                {!x.locked && (x.repeat || !x.done || isNext) && (
+                  <button type="button" className={isNext ? 'btn btn-sm btn-primary' : 'btn btn-sm'} disabled={chat.busy} onClick={() => run(x)}>
+                    {x.done && !isNext ? 'Again' : x.fill ? 'Fill in' : 'Start'}
+                  </button>
+                )}
+              </li>
+            );
+          })}
+        </ol>
+      ) : (
+        <ol className="prep-strip">
+          {main.map((x, i) => (
+            <li key={x.key} className={`${x.done ? 'done' : ''}${x === next ? ' next' : ''}`}>
+              <span className="prep-num" aria-hidden="true">{x.done ? <Check size={11} strokeWidth={2.5} /> : i + 1}</span>{x.title}
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
+  );
+}
+
+function PrepTab({ data, ctx }) {
+  const st = prepProgress(data, ctx);
+  const apps = [...ctx.apps].sort((a, b) => PREP_STATUSES.test(b.status) - PREP_STATUSES.test(a.status) || (ctx.focus === 'app' && b.num === ctx.ref) - (ctx.focus === 'app' && a.num === ctx.ref));
+  const r = apps[0];
+  const role = r ? `${r.role} at ${ctx.name} (tracker #${r.num}${r.report ? `, report ${r.report}` : ''})` : `the role at ${ctx.name}`;
+  const steps = prepSteps(st, role, ctx.name);
+  return (
+    <>
+      {st.files.length > 0 && (
+        <div className="cv-files">
+          <span className="panel-k">Prep for {ctx.name}</span>
+          {st.files.map((f) => (
+            <a key={f.name} className="file-link" href={`/api/prep-file?name=${encodeURIComponent(f.name)}`} target="_blank" rel="noreferrer noopener">
+              <span className="file-ext">md</span>{f.name} <ArrowUpRight size={12} strokeWidth={2.25} className="ico-inline" />
+            </a>
+          ))}
+        </div>
+      )}
+      <Chat thread={`iv-${noteSlug(ctx.name)}`} context={ctx} hints={[]} title=""
+        head={(chat) => <PrepSteps steps={steps} chat={chat} />}
+        intro="Runs career-ops' interview tools on your cv.md, evaluation report and story bank, with the same truth rules as your CV. For speaking practice, open the prep doc and use it in claude.ai voice mode."
+        placeholder="Answer Claude, or ask anything about this interview…" />
+    </>
+  );
+}
+
 // What you were typing, per chat: switching tabs or closing the panel unmounts the chat,
 // so the half-written message waits here until you come back (cleared when sent).
 const chatDrafts = new Map();
@@ -2665,12 +2780,12 @@ function replyArrived(thread, target, failed) {
   const name = target.global ? (thread === 'log' ? 'Log' : target.title ?? 'General')
     : target.kind === 'metric' ? 'This week' : target.kind === 'tier' ? `Tier ${target.tier}` : target.kind === 'network' ? 'Network'
       : target.focus === 'person' ? target.ref : target.company;
-  const where = thread.startsWith('cv-') ? `Tailor CV · ${name}` : name;
+  const where = thread.startsWith('cv-') ? `Tailor CV · ${name}` : thread.startsWith('iv-') ? `Interview prep · ${name}` : name;
   showToast(failed ? `Claude's reply failed · ${where}` : `Claude replied · ${where}`, failed ? 'bad' : 'ok', { label: 'Open', run: () => openFromAnywhere(target) });
   if (document.hidden) { unseenReplies += 1; document.title = `(${unseenReplies}) ${baseTitle}`; }
 }
 
-function Chat({ thread, context, initial, initialDraft = '', hints = null, contextName = '', title = 'Chat with Claude', intro = '', placeholder = '' }) {
+function Chat({ thread, context, initial, initialDraft = '', hints = null, contextName = '', title = 'Chat with Claude', intro = '', placeholder = '', head = null }) {
   const [messages, setMessages] = useState([]);
   const [draft, setDraftState] = useState(() => initialDraft || chatDrafts.get(thread) || '');
   const { item: panelItem } = usePanel();
@@ -2730,7 +2845,7 @@ function Chat({ thread, context, initial, initialDraft = '', hints = null, conte
     setLive({ text: '', tools: [] });
     // Where Open in the "Claude replied" notice should take you back to.
     const target = !panelItem || panelItem.global ? { global: true, thread, ...(panelItem?.title && chatFor(panelItem) === thread ? { title: panelItem.title } : {}) }
-      : { ...panelItem, send: undefined, draft: undefined, tab: thread.startsWith('cv-') ? 'cv' : 'chat' };
+      : { ...panelItem, send: undefined, draft: undefined, tab: thread.startsWith('cv-') ? 'cv' : thread.startsWith('iv-') ? 'prep' : 'chat' };
     let failed = false;
     replies.writing.add(thread);
     repliesChanged();
@@ -2778,8 +2893,16 @@ function Chat({ thread, context, initial, initialDraft = '', hints = null, conte
     send(asked);
   };
 
+  // Something above the messages that can start a message (the Interview prep steps):
+  // send it, or put it in the box for you to finish.
+  const fill = (text) => {
+    setDraft(text);
+    requestAnimationFrame(() => { const el = box.current; if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); } });
+  };
+
   return (
     <div className="chat">
+      {head?.({ send, fill, busy: Boolean(live) || running, started: messages.length > 0 })}
       <div className="chat-scroll" ref={scroller} onScroll={onScroll}>
       {title && <span className="panel-k">{title}</span>}
       {intro && messages.length === 0 && <p className="muted small">{intro}</p>}
@@ -2806,7 +2929,7 @@ function Chat({ thread, context, initial, initialDraft = '', hints = null, conte
                 {m.note && <p className="warn small">{m.note}</p>}
                 {m.actions?.map((a, j) => <ActionButton key={j} action={a} />)}
                 {m.files?.map((f) => (
-                  <a key={f} className="file-link" href={`/api/cv-file?name=${encodeURIComponent(f)}`} target="_blank" rel="noreferrer noopener">
+                  <a key={f} className="file-link" href={f.startsWith('interview-prep/') ? `/api/prep-file?name=${encodeURIComponent(f.slice(15))}` : `/api/cv-file?name=${encodeURIComponent(f)}`} target="_blank" rel="noreferrer noopener">
                     <span className="file-ext">{f.split('.').pop()}</span>Open {f} <ArrowUpRight size={12} strokeWidth={2.25} className="ico-inline" />
                   </a>
                 ))}

@@ -13,7 +13,7 @@ Your job search on one screen. You tell Claude what happened, and it keeps track
 - **Applications:** every role you're tracking, its status, and whether a real person is attached to it.
 - **Outreach:** your target companies by tier, and who you know at each.
 
-You update it in plain words ("Messaged Sam today, follow up Monday") and Claude edits the files. Claude also finds people to contact at your target companies, scans their job boards and scores new roles against your CV, evaluates a role on request, tailors your CV (in your own CV's design, if you like) and writes cover letters with you, and drafts messages that learn from what you tell it you sent.
+You update it in plain words ("Messaged Sam today, follow up Monday") and Claude edits the files. Claude also finds people to contact at your target companies, scans their job boards and scores new roles against your CV, evaluates a role on request, tailors your CV (in your own CV's design, if you like) and writes cover letters with you, walks you through interview prep step by step (prep doc, plan, practice, debrief), and drafts messages that learn from what you tell it you sent.
 
 ## What it never does
 
