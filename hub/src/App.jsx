@@ -772,6 +772,7 @@ function Openings({ data }) {
               </span>
               <span className="row-meta">
                 <EvaluateButton data={data} target={{ url: o.url, company: o.company, role: o.title }} />
+                {o.isNew && !o.shelved && <Chip kind="new" title="Found by the latest scan">New</Chip>}
                 {o.shelved && <Chip kind="undated">Shelved</Chip>}
                 {!ATS_HOSTS.test(o.host) && <Chip kind="via" title="Found on a job board, not the company's own site: confirm it at the employer before applying">via {o.host.split('.').slice(-2, -1)[0] || o.host}</Chip>}
                 {o.posted && <span className="date" title="Posted">{fmtShort(o.posted)}</span>}
@@ -1167,6 +1168,7 @@ function BestOpenings({ data }) {
               {o.location && <span className="row-note">{dedupeList(o.location)}</span>}
               <EvalNote data={data} target={{ url: o.url, opening: true }} />
             </span>
+            {o.isNew && <Chip kind="new" title="Found by the latest scan">New</Chip>}
             <span className="row-meta"><EvaluateButton data={data} target={{ url: o.url, company: o.company, role: o.title }} /></span>
             {o.posted && <span className="date">{fmtShort(o.posted)}</span>}
           </li>

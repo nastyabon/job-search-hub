@@ -241,6 +241,19 @@ function readPipeline(errors) {
       lastScan = { at: row.timestamp, status: row.status, companies: Number(row.companies), boards: Number(row.boards || 0), found: Number(row.found), added: Number(row.new_added) };
     }
   } catch { /* never scanned */ }
+  // "New" = first seen by scan.mjs on the day of the latest scan. scan-history.tsv is
+  // append-only with url, first_seen as its first two columns (local dates).
+  if (lastScan) {
+    const scanDay = new Date(lastScan.at).toLocaleDateString('en-CA');
+    const firstSeen = new Map();
+    try {
+      for (const line of fs.readFileSync(path.join(CAREER_OPS, 'data', 'scan-history.tsv'), 'utf8').split('\n')) {
+        const [url, seen] = line.split('\t');
+        if (url && url !== 'url' && !firstSeen.has(url)) firstSeen.set(url, seen);
+      }
+    } catch { /* no history */ }
+    for (const o of openings) o.isNew = firstSeen.get(o.url) === scanDay;
+  }
   return { openings, lastScan };
 }
 
