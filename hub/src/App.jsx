@@ -708,7 +708,9 @@ function Network({ data }) {
 }
 
 // Employer-run applicant systems; anything else is an aggregator listing to confirm at the employer.
-const ATS_HOSTS = /(ashbyhq|greenhouse|lever|workable|smartrecruiters|recruitee|teamtailor|personio|myworkdayjobs|bamboohr|join)\.(com|co|io|de)$/;
+const ATS_HOSTS = /(ashbyhq|greenhouse|lever|workable|smartrecruiters|recruitee|teamtailor|personio|myworkdayjobs|bamboohr|join|revolutpeople|pinpointhq|breezy|homerun|rippling-ats|jobvite|icims|dover|gem)\.(com|co|io|de|hr|pro)$/;
+// The employer's own site (acme.com for Acme) isn't a job board either.
+const ownSite = (o) => { const name = o.company.toLowerCase().replace(/[^a-z0-9]/g, ''); return name.length > 2 && o.host.replace(/[^a-z0-9]/g, '').includes(name); };
 
 // ── New openings: career-ops scan results waiting in data/pipeline.md ────
 
@@ -776,7 +778,7 @@ function Openings({ data }) {
                 <EvaluateButton data={data} target={{ url: o.url, company: o.company, role: o.title }} />
                 {o.isNew && !o.shelved && <Chip kind="new" title="Found by the latest scan">New</Chip>}
                 {o.shelved && <Chip kind="undated">Shelved</Chip>}
-                {!ATS_HOSTS.test(o.host) && <Chip kind="via" title="Found on a job board, not the company's own site: confirm it at the employer before applying">via {o.host.split('.').slice(-2, -1)[0] || o.host}</Chip>}
+                {!ATS_HOSTS.test(o.host) && !ownSite(o) && <Chip kind="via" title="Found on a job board, not the company's own site: confirm it at the employer before applying">via {o.host.split('.').slice(-2, -1)[0] || o.host}</Chip>}
                 {o.posted && <span className="date" title="Posted">{fmtShort(o.posted)}</span>}
               </span>
             </li>
