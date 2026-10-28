@@ -1,7 +1,8 @@
 // The only writes the dashboard can make. Kept apart from data.mjs (which stays read-only).
 //   - outreach.yml: edited through the `yaml` Document API so comments and order survive.
 //   - career-ops: never edited directly, only through its own CLIs (set-status.mjs, scan.mjs);
-//     the one exception is adding job links to pipeline.md's ## Pending, the inbox career-ops asks you to paste into.
+//     the exceptions are adding job links to pipeline.md's ## Pending, the inbox career-ops asks you to paste into,
+//     and adding job titles to portals.yml's title_filter (its user layer) when the user asks.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -9,6 +10,7 @@ import { execFile } from 'node:child_process';
 import { parseDocument, Scalar, parse as parseYaml, stringify as toYaml } from 'yaml';
 import { HUB_DATA, CAREER_OPS, LIVENESS_FILE, ymd, reportUrl, noteSlug, isoWeek } from './data.mjs';
 import { claudeEnv } from './claude-bin.mjs';
+import { webScan } from './web-scan.mjs';
 
 const OUTREACH = path.join(HUB_DATA, 'outreach.yml');
 const norm = (s) => String(s ?? '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
@@ -224,8 +226,8 @@ export async function checkLive() {
   return counts;
 }
 
-// Scan, then give each new opening a quick 0-5 fit score against cv.md with
-// career-ops rank-pipeline.mjs (runs `claude -p`; costs Claude usage, max 20 per run).
+// Scan (career-ops' job boards, then web-scan.mjs for the companies without one), then give each
+// new opening a quick 0-5 fit score against cv.md with career-ops rank-pipeline.mjs (runs `claude -p`; costs Claude usage, max 20 per run).
 // "I applied to X" without a full evaluation: career-ops' own tracker-addition path.
 // 1. reserve a number (reserve-report-num.mjs, same allocator the evaluators use)
 // 2. write a headed TSV to batch/tracker-additions/ (score N/A, no report: a backfill row)
@@ -275,6 +277,27 @@ export async function trackApplication({ company, role, date = ymd(new Date()), 
   return { num, company, role, status, date };
 }
 
+// "Also scan for X roles": adds keywords to title_filter.positive in career-ops' portals.yml (its user
+// layer, the scan settings the user owns). Comments and order kept; skips ones already there. Undo.
+export function scanTitles({ add = [] }) {
+  const file = path.join(CAREER_OPS, 'portals.yml');
+  const before = fs.readFileSync(file, 'utf8');
+  const doc = parseDocument(before);
+  if (doc.errors.length) throw new Error(`portals.yml: ${doc.errors[0].message}`);
+  const want = [...new Set((Array.isArray(add) ? add : [add]).map((k) => String(k ?? '').replace(/\s+/g, ' ').trim()).filter(Boolean))];
+  if (!want.length) throw new Error('Which job titles?');
+  if (!doc.hasIn(['title_filter', 'positive'])) doc.setIn(['title_filter', 'positive'], doc.createNode([]));
+  const list = doc.getIn(['title_filter', 'positive']);
+  const have = new Set((list.items ?? []).map((i) => String(i?.value ?? i).toLowerCase()));
+  const added = want.filter((k) => !have.has(k.toLowerCase()));
+  if (!added.length) throw new Error('Those titles are already in your scan');
+  for (const k of added) list.add(k);
+  list.flow = false;
+  const after = doc.toString({ lineWidth: 0 });
+  fs.writeFileSync(file, after);
+  return { added, undo: remember(file, before, after) };
+}
+
 // "Add these to New openings" (chat proposal, e.g. the jobs on a LinkedIn search page you sent):
 // one `- [ ] {url} | {company} | {title} | {location} | posted: {date}` line per job under
 // ## Pending in career-ops data/pipeline.md, the inbox its header asks you to paste job URLs into.
@@ -317,8 +340,10 @@ let scanning = null;
 export function runScan() {
   scanning ??= (async () => {
     const scan = await run(['scan.mjs'], 10 * 60_000);
+    // Then the companies scan.mjs can't read (no public job board): their careers pages, else a web search.
+    const web = await webScan().catch((e) => ({ error: e.message }));
     const rank = await rankOpenings().catch((e) => ({ ok: false, output: e.message }));
-    return { scan: scan.ok, ranked: rank.ok, rankNote: rank.ok ? '' : rank.output.split('\n').slice(-2).join(' ') };
+    return { scan: scan.ok, web: { added: web.added ?? 0, error: web.error ?? '' }, ranked: rank.ok, rankNote: rank.ok ? '' : rank.output.split('\n').slice(-2).join(' ') };
   })().finally(() => { scanning = null; });
   return scanning;
 }

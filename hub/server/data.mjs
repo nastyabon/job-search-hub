@@ -261,23 +261,39 @@ function readPipeline(errors) {
     const last = lines.at(-1).split('\t');
     if (lines.length > 1) {
       const row = Object.fromEntries(head.map((h, i) => [h, last[i]]));
-      lastScan = { at: row.timestamp, status: row.status, companies: Number(row.companies), boards: Number(row.boards || 0), found: Number(row.found), added: Number(row.new_added) };
+      const n = (k) => Number(row[k] || 0);
+      lastScan = { at: row.timestamp, status: row.status, companies: n('companies'), boards: n('boards'), found: n('found'), added: n('new_added'),
+        // Where the rest went (scan.mjs counts each cut; see SCAN_RUNS_HEADER there).
+        dupes: n('dupes'), title: n('filtered_title'), location: n('filtered_location'),
+        age: n('filtered_posting_age') + n('filtered_posted_date'),
+        other: n('filtered_tier') + n('filtered_salary') + n('filtered_content') + n('filtered_cooldown') + n('filtered_blacklist') + n('filtered_visa') + n('filtered_country_eligibility') };
     }
   } catch { /* never scanned */ }
-  // "New" = first seen by scan.mjs on the day of the latest scan. scan-history.tsv is
-  // append-only with url, first_seen as its first two columns (local dates).
+  // The companies without a job board (server/web-scan.mjs, run right after scan.mjs).
+  let web = null;
+  try { web = JSON.parse(fs.readFileSync(path.join(HUB_DATA, 'web-scan', 'last.json'), 'utf8')); } catch { /* not run yet */ }
+  let webSeen = {};
+  try { webSeen = JSON.parse(fs.readFileSync(path.join(HUB_DATA, 'web-scan', 'seen.json'), 'utf8')); } catch { /* not run yet */ }
+  // "New" = first seen on the day of the latest scan. scan-history.tsv is append-only with
+  // url, first_seen, portal, title, company, status as its first columns (local dates); the
+  // titles a filter dropped are kept there too (status skipped_title / _location / _age).
+  const filtered = [];
   if (lastScan) {
     const scanDay = new Date(lastScan.at).toLocaleDateString('en-CA');
     const firstSeen = new Map();
+    const REASON = { skipped_title: 'title', skipped_location: 'location', skipped_age: 'age' };
     try {
       for (const line of fs.readFileSync(path.join(CAREER_OPS, 'data', 'scan-history.tsv'), 'utf8').split('\n')) {
-        const [url, seen] = line.split('\t');
-        if (url && url !== 'url' && !firstSeen.has(url)) firstSeen.set(url, seen);
+        const [url, seen, , title, company, status] = line.split('\t');
+        if (!url || url === 'url') continue;
+        if (!firstSeen.has(url)) firstSeen.set(url, seen);
+        if (seen === scanDay && REASON[status]) filtered.push({ url, company, title, reason: REASON[status] });
       }
     } catch { /* no history */ }
-    for (const o of openings) o.isNew = firstSeen.get(o.url) === scanDay;
+    for (const o of openings) o.isNew = firstSeen.get(o.url) === scanDay || webSeen[o.url]?.first_seen === scanDay;
   }
-  return { openings, lastScan };
+  if (web) filtered.push(...(web.filtered ?? []).map((j) => ({ ...j, reason: 'title' })));
+  return { openings, lastScan, web, filtered };
 }
 
 // ── assembly ──────────────────────────────────────────────────────────

@@ -734,6 +734,7 @@ function Openings({ data }) {
     try {
       const r = await post(action);
       if (action === 'scan' && !r.ranked) showToast(`Scan finished, but scoring failed: ${r.rankNote}`, 'bad');
+      else if (action === 'scan' && r.web?.error) showToast(`Job boards scanned and scored. The companies without one weren't checked: ${r.web.error}`, 'bad');
       else showToast(action === 'scan' ? 'Scan finished and new roles scored' : 'Roles scored');
     } catch (e) {
       showToast(e.message, 'bad');
@@ -744,7 +745,7 @@ function Openings({ data }) {
   const when = lastScan && new Date(lastScan.at).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
   return (
     <Section id="openings" title="New openings" count={openings.length}
-      aside={lastScan ? `Last scan ${when} · ${lastScan.found} jobs from ${lastScan.companies} companies + ${lastScan.boards} job boards · ${lastScan.added} new` : 'Not scanned yet'}
+      aside={lastScan ? `Last scan ${when}` : 'Not scanned yet'}
       action={(
         <span className="check-all">
           {unscored > 0 && !scanning && (
@@ -753,13 +754,14 @@ function Openings({ data }) {
             </button>
           )}
           <button type="button" className="btn" onClick={() => open({ kind: 'posts' })} title="Paste a LinkedIn post search: find people hiring">Hiring posts</button>
-          <button type="button" className="btn" onClick={act('scan')} disabled={Boolean(busy) || scanning} title="Scan job boards, then score the new roles">{scanning ? 'Scanning…' : 'Scan now'}</button>
+          <button type="button" className="btn" onClick={act('scan')} disabled={Boolean(busy) || scanning} title="Scan job boards and the careers pages of companies without one, then score the new roles. A few minutes; the web search part uses a little of your Claude plan.">{scanning ? 'Scanning…' : 'Scan now'}</button>
         </span>
       )}>
+      {lastScan && <ScanFunnel scan={lastScan} web={data.pipeline.web} filtered={data.pipeline.filtered} />}
       <div className="group">
         <ul className="list">
           {openings.length === 0 && (
-            <Empty>No new matches waiting. Companies without a public job board need a web search: ask Claude to "run the career-ops scan".</Empty>
+            <Empty>No new matches waiting.</Empty>
           )}
           {openings.map((o) => (
             <li key={o.url} className={`row clickable${o.shelved ? ' shelved' : ''}${o.url === openUrl ? ' on' : ''}`} aria-current={o.url === openUrl || undefined} onClick={rowClick(open, { company: o.company, focus: 'opening', ref: o.url })}>
@@ -783,6 +785,68 @@ function Openings({ data }) {
       </div>
       {openings.length > 0 && <p className="muted small hint">Scores are a quick read of the title against your CV. For a full evaluation of a good one (job description, location rules, tailored CV), press Evaluate.</p>}
     </Section>
+  );
+}
+
+// Where the last scan's jobs went: career-ops' counters (scan-runs.tsv) plus the hub's scan of the
+// companies without a job board (web-scan.mjs), and the titles the filters dropped, so a thin
+// result can be checked rather than trusted.
+const FILTER_REASON = { title: "didn't match your job titles", location: 'outside your locations', age: 'posted too long ago' };
+const FILTER_HEAD = { title: "Didn't match your job titles", location: 'Outside your locations', age: 'Posted too long ago' };
+function ScanFunnel({ scan, web, filtered }) {
+  const [open, setOpen] = useState(false);
+  const found = scan.found + (web?.found ?? 0);
+  const steps = [
+    [scan.dupes + (web?.dupes ?? 0), 'seen in earlier scans'],
+    [scan.title + (web?.filteredTitle ?? 0), FILTER_REASON.title],
+    [scan.location, FILTER_REASON.location],
+    [scan.age, FILTER_REASON.age],
+    [scan.other, 'removed by your other scan filters'],
+  ].filter(([n]) => n > 0);
+  const added = scan.added + (web?.added ?? 0);
+  const via = (kind) => (web?.companies ?? []).filter((c) => c.via === kind).map((c) => c.name);
+  const [page, search, none, failed] = ['page', 'search', 'none', 'failed'].map(via);
+  const byReason = ['title', 'location', 'age'].map((r) => [r, filtered.filter((j) => j.reason === r)]).filter(([, jobs]) => jobs.length);
+  return (
+    <div className="scan-funnel">
+      <p className="small">
+        <b>{plural(found, 'job')}</b> found at {plural(scan.companies + (web?.companies.length ?? 0), 'company')}{scan.boards ? ` and ${plural(scan.boards, 'job board')}` : ''}
+        {steps.map(([n, what]) => <span key={what}> → {n} {what}</span>)}
+        {' → '}<b>{added} new</b>
+      </p>
+      {web?.companies.length > 0 && (
+        <p className="small muted">
+          No job board the scanner reads: {[
+            page.length && `${page.join(', ')} read from their careers page`,
+            search.length && `${search.join(', ')} by a web search`,
+            none.length && `no open roles found for ${none.join(', ')}`,
+            failed.length && `${failed.join(', ')} couldn't be checked (${web.companies.find((c) => c.via === 'failed').error})`,
+            web.waiting?.length && `${web.waiting.join(', ')} next scan`,
+          ].filter(Boolean).join(' · ')}.
+        </p>
+      )}
+      {filtered.length > 0 && (
+        <>
+          <button type="button" className="linkish small" onClick={() => setOpen((x) => !x)} aria-expanded={open}>
+            {open ? 'Hide' : 'Show'} what was filtered out ({filtered.length})
+          </button>
+          {open && (
+            <div className="scan-filtered">
+              {byReason.map(([reason, jobs]) => (
+                <div key={reason}>
+                  <span className="panel-k">{FILTER_HEAD[reason]} · {jobs.length}</span>
+                  <ul>{jobs.map((j) => (
+                    <li key={j.url} className="small"><a href={j.url} target="_blank" rel="noreferrer noopener">{j.title}</a> <span className="muted">· {j.company}</span></li>
+                  ))}</ul>
+                </div>
+              ))}
+              {filtered.length < scan.title + scan.location + scan.age + (web?.filteredTitle ?? 0) && <p className="small muted">Roles filtered out in an earlier scan aren't listed again.</p>}
+              <p className="small muted">A role you'd want here? Tell Claude in the chat, e.g. "also scan for Service Designer roles". It updates your scan titles, and the next scan picks them up.</p>
+            </div>
+          )}
+        </>
+      )}
+    </div>
   );
 }
 
@@ -2116,6 +2180,24 @@ function AlumniPanel({ onClose, back }) {
 const INTRO_RANK = (m) => (isWarm(m.relation) ? 0 : m.relation && m.relation !== 'connection' ? 1 : m.relation ? 2 : 3);
 const introsOf = (p) => p.mutual.filter((m) => m.relation).sort((a, b) => INTRO_RANK(a) - INTRO_RANK(b));
 
+// While Find's web search runs (about a minute): moving dots, a seconds counter and placeholder
+// rows, so it's clear Claude is working rather than the panel being empty.
+function FindWorking({ company }) {
+  const [secs, setSecs] = useState(0);
+  useEffect(() => { const t = setInterval(() => setSecs((n) => n + 1), 1000); return () => clearInterval(t); }, []);
+  return (
+    <div className="find-working" role="status" aria-live="polite">
+      <p className="find-working-head">
+        <span className="typing" aria-hidden="true"><span /><span /><span /></span>
+        <b>Claude is searching the web for people at {company}</b>
+        <span className="muted small">{secs}s</span>
+      </p>
+      <p className="muted small">The likely hiring manager, a recruiter, maybe a peer. Usually about a minute. It uses a little of your Claude plan and doesn't open LinkedIn. You can close this panel; the results wait for you.</p>
+      {[0, 1, 2].map((i) => <span key={i} className="sk sk-person" />)}
+    </div>
+  );
+}
+
 // Find: who to contact at a company (server/find.mjs). People you know there (connections export)
 // and people a short web search suggests, with tick boxes. Nothing is saved until Add; added people
 // get today's date, so they show in Today with a Draft button.
@@ -2170,7 +2252,7 @@ function FindPanel({ company, onClose, back }) {
     <aside className="panel" aria-label={`Who to contact at ${company}`}>
       <PanelHeader onClose={onClose} back={back} title={`Who to contact at ${company}`} sub="People you know there, and people Claude found" />
       <div className="panel-body">
-        {busy === 'search' && <p className="muted">Claude is looking for people at {company}: the likely hiring manager, a recruiter, maybe a peer. About a minute. It uses a little of your Claude plan and doesn't open LinkedIn.</p>}
+        {busy === 'search' && <FindWorking company={company} />}
         {err && <p className="notice">{err}</p>}
         {res && (
           <>
@@ -2566,6 +2648,7 @@ const ACTION_RUN = {
   status: (a) => post('status', { num: a.num, status: a.status }),
   track: (a) => post('track', a),
   openings: (a) => post('openings', { jobs: a.jobs }),
+  titles: (a) => post('titles', { add: a.add }),
   scan: () => post('scan'),
   live: () => post('live'),
   rank: () => post('rank'),
@@ -2582,7 +2665,8 @@ function ActionButton({ action }) {
     try {
       const r = await ACTION_RUN[action.type](action);
       setState('done');
-      showToast(action.type === 'openings' ? `Added ${r.added} to New openings${r.skipped?.length ? ` · ${r.skipped.length} already there` : ''}` : `Done: ${action.label}`);
+      if (action.type === 'titles') showToast(`The next scan also looks for ${r.added.join(', ')}`, 'ok', () => post('undo', { id: r.undo }));
+      else showToast(action.type === 'openings' ? `Added ${r.added} to New openings${r.skipped?.length ? ` · ${r.skipped.length} already there` : ''}` : `Done: ${action.label}`);
     } catch (e) { setState(''); showToast(e.message, 'bad'); }
   };
   // Adding a role ("track") or jobs ("openings") says Add, so it doesn't read as applying to the job.

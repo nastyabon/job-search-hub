@@ -310,6 +310,11 @@ a { color: inherit; }
 .sk-rule { height: 1px; margin-top: 20px; }
 .sk-row { height: 44px; max-width: 760px; }
 @keyframes sk { 50% { opacity: 0.6; } }
+.find-working { display: grid; gap: 8px; }
+.find-working p { margin: 0; }
+.find-working-head { display: flex; align-items: center; gap: 10px; }
+.find-working-head .muted { margin-left: auto; font-variant-numeric: tabular-nums; }
+.sk-person { height: 40px; }
 
 /* ── command bar ────────────────────────────────────────────────────── */
 
@@ -697,6 +702,12 @@ code { font: 11.5px var(--font-mono); background: var(--hover); padding: 1px 4px
 
 /* groups are ruled ledger sections, not cards */
 .group + .group { margin-top: 18px; }
+.scan-funnel { margin: 0 0 14px; display: grid; gap: 4px; justify-items: start; }
+.scan-funnel p { margin: 0; color: var(--ink-2); }
+.scan-funnel b { color: var(--ink); font-weight: 600; }
+.scan-filtered { width: 100%; margin-top: 6px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; display: grid; gap: 12px; max-height: 360px; overflow: auto; }
+.scan-filtered ul { margin: 0; padding-left: 18px; }
+.scan-filtered a { color: inherit; text-underline-offset: 2px; }
 .group-head {
   display: flex; align-items: center; gap: 8px; padding: 0 0 8px; border-bottom: 1px solid var(--line-strong);
 }

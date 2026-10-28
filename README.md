@@ -13,7 +13,7 @@ Your job search on one screen. You tell Claude what happened, and it keeps track
 - **Applications:** every role you're tracking, its status, and whether a real person is attached to it.
 - **Outreach:** your target companies by tier, and who you know at each.
 
-You update it in plain words ("Messaged Sam today, follow up Monday") and Claude edits the files. Claude also finds people to contact at your target companies, scans their job boards and scores new roles against your CV, evaluates a role on request, tailors your CV (in your own CV's design, if you like) and writes cover letters with you, walks you through interview prep step by step (prep doc, plan, practice, debrief), and drafts messages that learn from what you tell it you sent.
+You update it in plain words ("Messaged Sam today, follow up Monday") and Claude edits the files. Claude also finds people to contact at your target companies, scans their job boards and careers pages and scores new roles against your CV (showing what it filtered out, and why), evaluates a role on request, tailors your CV (in your own CV's design, if you like) and writes cover letters with you, walks you through interview prep step by step (prep doc, plan, practice, debrief), and drafts messages that learn from what you tell it you sent.
 
 ## What it never does
 
@@ -28,6 +28,7 @@ You update it in plain words ("Messaged Sam today, follow up Monday") and Claude
 - A paid Claude plan (Pro or higher).
 - Node.js 22.13 or newer, and git.
 - Claude Code. The desktop app alone isn't enough: the hub calls `claude -p` in the background, so setup installs its own copy and signs it in to your account.
+- About 25 minutes for setup. Have these ready: your CV (all versions, if you have several for different kinds of roles; Claude combines them), the salary range you're after, and 5 to 15 companies you'd like to work at.
 
 ## Quick install
 

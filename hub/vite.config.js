@@ -10,7 +10,7 @@ import { logoFor } from './server/logos.mjs';
 import { startEvaluation, recoverEvaluations } from './server/evaluate.mjs';
 import { reportHtml } from './server/report-html.mjs';
 import { findPreview, findAdd } from './server/find.mjs';
-import { markContacted, undo, setAppStatus, checkLive, runScan, rankOpenings, isScanning, addNote, weekTick, trackApplication, addOpenings, hideItem, unhideItem, dropContact, APP_STATES } from './server/actions.mjs';
+import { markContacted, undo, setAppStatus, checkLive, runScan, rankOpenings, isScanning, addNote, weekTick, trackApplication, addOpenings, scanTitles, hideItem, unhideItem, dropContact, APP_STATES } from './server/actions.mjs';
 import { runChat, readThread, undoChat, chatBusy, listThreads } from './server/chat.mjs';
 
 // The "tiny Node server", inside the Vite dev server.
@@ -20,12 +20,13 @@ import { runChat, readThread, undoChat, chatBusy, listThreads } from './server/c
 //   POST /api/action/status     {num, status}    career-ops set-status.mjs on a tracker row
 //   POST /api/action/undo       {id}             revert a tick (only if outreach.yml is unchanged since)
 //   POST /api/action/live                        career-ops check-liveness.mjs on every tracked posting
-//   POST /api/action/scan       run career-ops scan.mjs, then rank-pipeline.mjs on new openings
+//   POST /api/action/scan       run career-ops scan.mjs, then web-scan.mjs (companies without a job board), then rank-pipeline.mjs
 //   POST /api/action/rank       rank-pipeline.mjs only (quick 0-5 fit score, uses Claude)
 //   POST /api/action/note       {company, text}   quick note, no AI
 //   POST /api/action/week       {kind: post|prep, hours}  tick this week's manual boxes
 //   POST /api/action/track      {company, role, date, status, url, channel, contact}  add a tracker row (career-ops merge)
 //   POST /api/action/openings   {jobs: [{url, company, title, location, posted}]}  add job links to New openings (pipeline.md ## Pending)
+//   POST /api/action/titles     {add: ["Service Designer"]}  also scan for these job titles (portals.yml title_filter.positive)
 //   POST /api/action/drop       {name, company}  "won't help": contact → cold, follow-up cleared
 //   POST /api/action/hide       {key, label, reason}  hide a Needs-attention row / shelve an opening (hub-data/hidden.yml)
 //   POST /api/action/unhide     {key} or {keys}  bring hidden items back
@@ -42,7 +43,7 @@ import { runChat, readThread, undoChat, chatBusy, listThreads } from './server/c
 //   GET  /api/cv-file?name=…    a tailored CV from career-ops/output
 //   GET  /api/prep-file?name=…  an interview prep file from career-ops/interview-prep
 //   POST /api/chat              {thread, message, context}  streams NDJSON events (see server/chat.mjs)
-const ACTIONS = { contacted: markContacted, undo, status: setAppStatus, live: checkLive, scan: runScan, rank: rankOpenings, note: addNote, week: weekTick, track: trackApplication, openings: addOpenings, hide: hideItem, unhide: unhideItem, drop: dropContact, 'chat-undo': undoChat, 'alumni-preview': alumniPreview, 'alumni-add': alumniAdd, 'people-preview': peoplePreview, 'people-add': peopleAdd, 'posts-preview': postsPreview, 'posts-add': postsAdd, evaluate: startEvaluation, 'find-preview': findPreview, 'find-add': findAdd };
+const ACTIONS = { contacted: markContacted, undo, status: setAppStatus, live: checkLive, scan: runScan, rank: rankOpenings, note: addNote, week: weekTick, track: trackApplication, openings: addOpenings, titles: scanTitles, hide: hideItem, unhide: unhideItem, drop: dropContact, 'chat-undo': undoChat, 'alumni-preview': alumniPreview, 'alumni-add': alumniAdd, 'people-preview': peoplePreview, 'people-add': peopleAdd, 'posts-preview': postsPreview, 'posts-add': postsAdd, evaluate: startEvaluation, 'find-preview': findPreview, 'find-add': findAdd };
 
 // HUB_PORT lets a second copy (e.g. a design branch) run next to the main hub. Default 5199.
 const PORT = Number(process.env.HUB_PORT) || 5199;
