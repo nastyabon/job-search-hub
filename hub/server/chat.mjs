@@ -323,7 +323,8 @@ export async function runChat({ thread, message, context }, emit) {
   data.messages.push({ role: 'user', text, at: new Date().toISOString() });
   writeThread(thread, data);
 
-  const args = ['-p', text, '--output-format', 'stream-json', '--verbose', '--include-partial-messages',
+  // The message goes in on stdin: as an argument, text starting with "-" is read as a flag.
+  const args = ['-p', '--output-format', 'stream-json', '--verbose', '--include-partial-messages',
     '--tools', TOOLS, '--allowedTools', ...{ hub: ALLOWED, cv: CV_ALLOWED, iv: IV_ALLOWED }[kind], '--permission-mode', 'dontAsk',
     '--setting-sources', 'project', '--strict-mcp-config', '--append-system-prompt', { hub: () => systemPrompt(context, thread), cv: () => cvPrompt(context), iv: () => prepPrompt(context) }[kind]()];
   if (data.sessionId) args.push('--resume', data.sessionId);
@@ -334,7 +335,8 @@ export async function runChat({ thread, message, context }, emit) {
     const result = await new Promise((resolve, reject) => {
       const bin = claudeBin();
       if (!bin) throw new Error(NO_CLAUDE);
-      const child = spawn(bin, args, { cwd: cv ? CAREER_OPS : ROOT, stdio: ['ignore', 'pipe', 'pipe'] });
+      const child = spawn(bin, args, { cwd: cv ? CAREER_OPS : ROOT, stdio: ['pipe', 'pipe', 'pipe'] });
+      child.stdin.end(text);
       const timer = setTimeout(() => child.kill('SIGTERM'), (cv ? 25 : 10) * 60_000);
       let buf = '';
       let stderr = '';
