@@ -4,6 +4,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFile } from 'node:child_process';
+import { pathToFileURL } from 'node:url';
 import { load as loadYaml } from 'js-yaml';
 import { loadProfile, isWarm, warmNote } from './profile.mjs';
 
@@ -296,6 +297,53 @@ function readPipeline(errors) {
   return { openings, lastScan, web, filtered };
 }
 
+// What the filters dropped, narrowed to what's close to the user's own job titles (portals.yml
+// title_filter), so the list shows lost options rather than every open role:
+//   - blocked: a title that matches a positive keyword but a negative one removed it ("Product
+//     Design Manager" by "Manager"). Hidden when that negative is itself a design-family title
+//     ("Brand Designer") or a level (junior, intern, Werkstudent…): those exclusions are deliberate.
+//   - close: no positive match, but it shares the role word of the positives (designer, design,
+//     ux, ui: each positive's last word, minus seniority words) and no negative removed it.
+//   - location / age: these passed the title filter, so they're all relevant.
+// Everything else is counted, not listed. `fold` and `compile` are career-ops' own (title-keywords.mjs).
+const LEVEL = /junior|intern|werkstudent|praktik|thesis|arbeit|studium|ausbildung|trainee|apprentice|student|graduate/;
+const SENIORITY = new Set(['senior', 'staff', 'principal', 'lead', 'head', 'founding', 'director', 'sr', 'jr', 'junior', 'chief', 'of', 'and', '&']);
+export function sortFiltered(filtered, titleFilter, { fold, compile, compilePositive = compile }) {
+  const kws = (list) => (Array.isArray(list) ? list : []).filter((k) => typeof k === 'string' && k.trim()).map((k) => k.trim().toLowerCase());
+  const positive = kws(titleFilter?.positive).map(compilePositive);
+  const negative = kws(titleFilter?.negative).map((k) => ({ k, match: compile(k) }));
+  const roleWords = new Set(kws(titleFilter?.positive).map((k) => k.replace(/^(word|stem):/, '').split(/\s+/).filter((w) => !SENIORITY.has(w)).at(-1)).filter(Boolean)
+    .flatMap((w) => w.split('/')).map((w) => (w.startsWith('design') ? 'design' : w)));
+  const roleRe = roleWords.size ? new RegExp(`(^|[^a-z])(${[...roleWords].map((w) => (w === 'design' ? 'design[a-z]*' : w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))).join('|')})($|[^a-z])`) : null;
+  const isRoleFamily = (text) => Boolean(roleRe?.test(text));
+  const out = { blocked: [], close: [], location: [], age: [], hidden: 0 };
+  for (const j of filtered) {
+    if (j.reason === 'location' || j.reason === 'age') { out[j.reason].push(j); continue; }
+    const t = fold(j.title);
+    const blocker = negative.find((n) => n.match(t));
+    if (positive.some((m) => m(t))) {
+      if (blocker && !isRoleFamily(blocker.k) && !LEVEL.test(blocker.k)) out.blocked.push({ ...j, blocker: blocker.k.replace(/^(word|stem):/, '').trim() });
+      else out.hidden += 1;
+    } else if (!blocker && isRoleFamily(t)) out.close.push(j);
+    else out.hidden += 1;
+  }
+  return out;
+}
+
+// career-ops' matcher when it's there; a plain substring match otherwise.
+let keywordLib = null;
+async function titleKeywords() {
+  keywordLib ??= import(pathToFileURL(path.join(CAREER_OPS, 'title-keywords.mjs')).href).then((m) => ({ fold: m.foldTitle, compile: m.compileKeyword, compilePositive: m.compilePositiveKeyword }))
+    .catch(() => ({ fold: (s) => String(s ?? '').toLowerCase(), compile: (k) => { const w = k.replace(/^(word|stem):/, ''); return (t) => t.includes(w); } }));
+  return keywordLib;
+}
+
+async function readFilterView(filtered) {
+  let titleFilter = null;
+  try { titleFilter = loadYaml(fs.readFileSync(path.join(CAREER_OPS, 'portals.yml'), 'utf8'))?.title_filter ?? null; } catch { /* no scan settings */ }
+  return sortFiltered(filtered, titleFilter, await titleKeywords());
+}
+
 // ── assembly ──────────────────────────────────────────────────────────
 
 const range = (target) => (typeof target === 'object' && target
@@ -326,6 +374,7 @@ export async function buildPayload(now = new Date(), { followups = true } = {}) 
   const coFollowups = followups ? await readCareerOpsFollowups(errors) : [];
   const weekFile = readWeekFile(week.id);
   const pipeline = readPipeline(errors);
+  pipeline.filtered = await readFilterView(pipeline.filtered);
   const hidden = readHidden(errors);
   const shelved = new Set(hidden.filter((h) => String(h.key).startsWith('opening:')).map((h) => String(h.key).slice(8)));
   for (const o of pipeline.openings) o.shelved = shelved.has(o.url);

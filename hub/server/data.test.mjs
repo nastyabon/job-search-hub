@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { isoWeek, parseTracker, parsePipeline } from './data.mjs';
+import { isoWeek, parseTracker, parsePipeline, sortFiltered } from './data.mjs';
 
 test('isoWeek matches ISO 8601, including year boundaries', () => {
   assert.deepEqual(isoWeek(new Date(2026, 9, 20)), { id: '2026-W43', start: '2026-10-19', end: '2026-10-25' });
@@ -48,4 +48,24 @@ test('parsePipeline reads only Pending scan rows', () => {
     { url: 'https://jobs.ashbyhq.com/acme/1', company: 'Acme', title: 'Senior Product Designer', location: '', posted: '', host: 'jobs.ashbyhq.com', score: 4.5, reason: 'AI creation tools, close to my last role' },
     { url: 'https://example.com/job/2', company: '', title: '', location: '', posted: '', host: 'example.com', score: null, reason: '' },
   ]);
+});
+
+test('sortFiltered keeps only filtered roles close to the job titles', () => {
+  const fold = (s) => String(s).toLowerCase();
+  const compile = (k) => (t) => t.includes(k);
+  const titleFilter = { positive: ['Product Designer', 'UX/UI', 'Senior Designer'], negative: ['Manager', 'Brand Designer', 'Junior'] };
+  const job = (title, reason = 'title') => ({ title, reason, url: title, company: 'Acme' });
+  const out = sortFiltered([
+    job('Product Designer Manager'), // a positive, removed by a non-design negative
+    job('Junior Product Designer'), // removed by a level: deliberate
+    job('Brand Designer'), // a design exclusion the user set
+    job('Service Designer'), // same role word, no positive
+    job('UX Researcher'), // ux is a role word (from UX/UI)
+    job('Account Executive'), // unrelated
+    job('Product Designer', 'location'),
+  ], titleFilter, { fold, compile });
+  assert.deepEqual(out.blocked.map((j) => [j.title, j.blocker]), [['Product Designer Manager', 'manager']]);
+  assert.deepEqual(out.close.map((j) => j.title), ['Service Designer', 'UX Researcher']);
+  assert.deepEqual(out.location.map((j) => j.title), ['Product Designer']);
+  assert.equal(out.hidden, 3);
 });

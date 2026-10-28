@@ -792,7 +792,13 @@ function Openings({ data }) {
 // companies without a job board (web-scan.mjs), and the titles the filters dropped, so a thin
 // result can be checked rather than trusted.
 const FILTER_REASON = { title: "didn't match your job titles", location: 'outside your locations', age: 'posted too long ago' };
-const FILTER_HEAD = { title: "Didn't match your job titles", location: 'Outside your locations', age: 'Posted too long ago' };
+// The filtered roles worth a look (data.mjs sortFiltered), in this order.
+const FILTER_GROUPS = [
+  ['blocked', 'Your titles, removed by a word you excluded', (j) => `removed by “${j.blocker}”`],
+  ['close', 'Close to your job titles'],
+  ['location', 'Your titles, outside your locations'],
+  ['age', 'Your titles, posted too long ago'],
+];
 function ScanFunnel({ scan, web, filtered }) {
   const [open, setOpen] = useState(false);
   const found = scan.found + (web?.found ?? 0);
@@ -806,7 +812,8 @@ function ScanFunnel({ scan, web, filtered }) {
   const added = scan.added + (web?.added ?? 0);
   const via = (kind) => (web?.companies ?? []).filter((c) => c.via === kind).map((c) => c.name);
   const [page, search, none, failed] = ['page', 'search', 'none', 'failed'].map(via);
-  const byReason = ['title', 'location', 'age'].map((r) => [r, filtered.filter((j) => j.reason === r)]).filter(([, jobs]) => jobs.length);
+  const groups = FILTER_GROUPS.filter(([k]) => filtered[k]?.length);
+  const shown = groups.reduce((n, [k]) => n + filtered[k].length, 0);
   return (
     <div className="scan-funnel">
       <p className="small">
@@ -825,22 +832,22 @@ function ScanFunnel({ scan, web, filtered }) {
           ].filter(Boolean).join(' · ')}.
         </p>
       )}
-      {filtered.length > 0 && (
+      {shown > 0 && (
         <>
           <button type="button" className="linkish small" onClick={() => setOpen((x) => !x)} aria-expanded={open}>
-            {open ? 'Hide' : 'Show'} what was filtered out ({filtered.length})
+            {open ? 'Hide' : 'Show'} {plural(shown, 'filtered role')} close to your profile
           </button>
           {open && (
             <div className="scan-filtered">
-              {byReason.map(([reason, jobs]) => (
-                <div key={reason}>
-                  <span className="panel-k">{FILTER_HEAD[reason]} · {jobs.length}</span>
-                  <ul>{jobs.map((j) => (
-                    <li key={j.url} className="small"><a href={j.url} target="_blank" rel="noreferrer noopener">{j.title}</a> <span className="muted">· {j.company}</span></li>
+              {groups.map(([k, head, note]) => (
+                <div key={k}>
+                  <span className="panel-k">{head} · {filtered[k].length}</span>
+                  <ul>{filtered[k].map((j) => (
+                    <li key={j.url} className="small"><a href={j.url} target="_blank" rel="noreferrer noopener">{j.title}</a> <span className="muted">· {j.company}{note ? ` · ${note(j)}` : ''}</span></li>
                   ))}</ul>
                 </div>
               ))}
-              {filtered.length < scan.title + scan.location + scan.age + (web?.filteredTitle ?? 0) && <p className="small muted">Roles filtered out in an earlier scan aren't listed again.</p>}
+              {filtered.hidden > 0 && <p className="small muted">{plural(filtered.hidden, 'other role')} not shown: unrelated to your job titles, or removed by an exclusion you set on purpose. Roles filtered out in an earlier scan aren't listed again.</p>}
               <p className="small muted">A role you'd want here? Tell Claude in the chat, e.g. "also scan for Service Designer roles". It updates your scan titles, and the next scan picks them up.</p>
             </div>
           )}
