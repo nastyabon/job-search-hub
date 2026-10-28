@@ -403,6 +403,13 @@ h2 { font-size: 14px; font-weight: 600; display: flex; align-items: center; gap:
   background: var(--surface); border-left: 1px solid var(--line);
   display: flex; flex-direction: column;
 }
+/* thin scrollbars everywhere (page, chat, chat list, details): a 4px thumb in the line colour, no track */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 8px; border: 2px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background-color: var(--ink-3); }
+::-webkit-scrollbar-corner { background: transparent; }
+@supports not selector(::-webkit-scrollbar) { * { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; } }
 .panel-top { cursor: grab; }
 .panel-top:active { cursor: grabbing; }
 .panel-top :is(button, a) { cursor: pointer; }
