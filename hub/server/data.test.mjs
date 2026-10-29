@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { isoWeek, parseTracker, parsePipeline, sortFiltered } from './data.mjs';
+import { isoWeek, parseTracker, parsePipeline, sortFiltered, dedupeOpenings } from './data.mjs';
 
 test('isoWeek matches ISO 8601, including year boundaries', () => {
   assert.deepEqual(isoWeek(new Date(2026, 9, 20)), { id: '2026-W43', start: '2026-10-19', end: '2026-10-25' });
@@ -76,4 +76,9 @@ test('a new week file has the §13 header and sections', async () => {
   assert.match(text, /^# 2026-W53 · Mon 28 Dec – Sun 3 Jan 2027\n/);
   assert.match(text, /\n## LinkedIn posts\n- \[ \] Post 1\n/);
   assert.match(text, /\n## Interview prep \(1 box = 1 hour\)\n(- \[ \] 1h\n)+\n## Notes\n$/);
+});
+
+test('dedupeOpenings: the same role under two links shows once, the better-scored one', () => {
+  const o = (url, score) => ({ url, company: 'Kwalee', title: 'Lead Ad Monetisation Manager', location: '', score });
+  assert.deepEqual(dedupeOpenings([o('a', 3.5), o('b', null), o('c', 4)]).map((x) => x.url), ['c']);
 });

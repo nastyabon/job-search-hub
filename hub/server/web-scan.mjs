@@ -140,19 +140,50 @@ async function pool(items, size, fn) {
 
 const searchFile = (company) => path.join(DIR, `search-${noteSlug(company)}.json`);
 
+// A link to one job posting, not a news story or a blog post a careers page or search linked to:
+// an applicant-system host, or a path that says job / career / position / opening / vacancy / apply.
+const ATS = /(^|\.)(ashbyhq|greenhouse|lever|workable|smartrecruiters|recruitee|teamtailor|personio|myworkdayjobs|workday|bamboohr|jobvite|icims|breezy|pinpointhq|homerun|rippling-ats|dover|jobs\.gem|join|successfactors|taleo|eightfold|oraclecloud)\.[a-z.]+$/i;
+const JOB_PATH = /(job|career|position|opening|vacanc|vacature|stelle|role|apply|requisition|posting|opportunit)/i;
+export function isPosting(url) {
+  try { const u = new URL(url); return ATS.test(u.hostname) || JOB_PATH.test(u.pathname + u.search); } catch { return false; }
+}
+
+// Careers pages often put the place in the title instead of a location field ("Product Designer,
+// United States, Redmond"). Without a location the filter lets a job through, so the places named
+// in the title stand in for it. Only names that are clearly places; "US"/"UK" must be capitals.
+const PLACES = ['United States', 'USA', 'U.S.', 'North America', 'Canada', 'Toronto', 'Vancouver', 'Mexico', 'Brazil', 'São Paulo', 'Sao Paulo', 'Argentina', 'Chile', 'Colombia', 'LATAM',
+  'New York', 'NYC', 'San Francisco', 'Bay Area', 'Seattle', 'Redmond', 'Los Angeles', 'Austin', 'Boston', 'Chicago', 'Palo Alto', 'Mountain View', 'Menlo Park', 'Denver', 'Atlanta', 'Miami',
+  'United Kingdom', 'England', 'Scotland', 'London', 'Manchester', 'Leamington', 'Ireland', 'Dublin', 'Germany', 'Berlin', 'Munich', 'Hamburg', 'France', 'Paris', 'Spain', 'Madrid', 'Barcelona',
+  'Italy', 'Milan', 'Rome', 'Portugal', 'Lisbon', 'Porto', 'Poland', 'Warsaw', 'Krakow', 'Netherlands', 'Amsterdam', 'Rotterdam', 'Utrecht', 'Belgium', 'Brussels', 'Luxembourg', 'Sweden', 'Stockholm',
+  'Denmark', 'Copenhagen', 'Norway', 'Oslo', 'Finland', 'Helsinki', 'Switzerland', 'Zurich', 'Geneva', 'Austria', 'Vienna', 'Czech', 'Prague', 'Romania', 'Bucharest', 'Ukraine', 'Kyiv', 'Cyprus',
+  'Limassol', 'Estonia', 'Tallinn', 'Lithuania', 'Vilnius', 'Greece', 'Athens', 'Turkey', 'Istanbul', 'Israel', 'Tel Aviv', 'UAE', 'United Arab Emirates', 'Dubai', 'Abu Dhabi', 'Saudi Arabia', 'Riyadh',
+  'Qatar', 'Egypt', 'Cairo', 'Nigeria', 'Lagos', 'Kenya', 'Nairobi', 'South Africa', 'India', 'Bangalore', 'Bengaluru', 'Mumbai', 'Delhi', 'Hyderabad', 'Pune', 'China', 'Beijing', 'Shanghai',
+  'Shenzhen', 'Hong Kong', 'Taiwan', 'Taipei', 'Singapore', 'Japan', 'Tokyo', 'Korea', 'Seoul', 'Australia', 'Sydney', 'Melbourne', 'New Zealand', 'Indonesia', 'Jakarta', 'Philippines', 'Manila',
+  'Vietnam', 'Thailand', 'Bangkok', 'Malaysia', 'Kuala Lumpur', 'APAC', 'EMEA', 'Europe', 'Remote'];
+const PLACE_RE = new RegExp(`(?<![\\p{L}])(${PLACES.map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})(?![\\p{L}])`, 'giu');
+const CAPS_RE = /(?<![A-Za-z])(US|UK)(?![A-Za-z])/g;
+export function placeFromTitle(title) {
+  const t = String(title ?? '');
+  return [...new Set([...t.matchAll(PLACE_RE), ...t.matchAll(CAPS_RE)].map((m) => m[1]))].join(', ');
+}
+
 // Sorts one run's jobs into new / seen before / filtered by title / filtered by location.
-// Pure, for the tests.
+// The same role under two links (company + title) counts once. Pure, for the tests.
 export function sortJobs(jobs, { matches, place = () => true, seen, today }) {
   const fresh = [];
   const filtered = [];
   const elsewhere = [];
   let dupes = 0;
   const urls = new Set();
+  const roles = new Set();
   for (const j of jobs) {
     if (urls.has(j.url)) continue;
     urls.add(j.url);
-    if (seen[j.url]) { dupes += 1; continue; }
-    const status = !matches(j.title) ? 'skipped_title' : !place(j.location, j.url, j.title) ? 'skipped_location' : 'added';
+    const role = `${key(j.company)}|${key(j.title)}|${key(j.location)}`;
+    if (seen[j.url] || roles.has(role)) { dupes += 1; continue; }
+    roles.add(role);
+    const where = j.location || placeFromTitle(j.title);
+    const status = !matches(j.title) ? 'skipped_title' : !place(where, j.url, j.title) ? 'skipped_location' : 'added';
     ({ added: fresh, skipped_title: filtered, skipped_location: elsewhere })[status].push(j);
     seen[j.url] = { first_seen: today, company: j.company, title: j.title, status };
   }
@@ -168,7 +199,7 @@ export async function webScan({ root = CAREER_OPS, now = new Date() } = {}) {
   const place = await locationMatcher(locationFilter, root);
   const jobs = [];
   const take = (company, list, via) => {
-    const clean = list.filter((j) => j?.title && /^https?:\/\//.test(j.url ?? '') && !/linkedin\.com|lnkd\.in/i.test(j.url))
+    const clean = list.filter((j) => j?.title && /^https?:\/\//.test(j.url ?? '') && !/linkedin\.com|lnkd\.in/i.test(j.url) && isPosting(j.url))
       .map((j) => ({ company, title: String(j.title).replace(/\s+/g, ' ').trim(), url: String(j.url).trim(), location: String(j.location ?? '').trim() }));
     jobs.push(...clean);
     run.companies.push({ name: company, via, found: clean.length });

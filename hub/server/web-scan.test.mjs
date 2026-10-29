@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { targetsToScan, sortJobs } from './web-scan.mjs';
+import { targetsToScan, sortJobs, isPosting, placeFromTitle } from './web-scan.mjs';
 
 test('targetsToScan: board-less portals.yml companies plus outreach companies not in it', async () => {
   // No providers/ folder here, so it falls back to career-ops' scan_method flag.
@@ -49,4 +49,18 @@ test('sortJobs: matching titles outside the user\'s locations are filtered, not 
   assert.deepEqual(run.elsewhere.map((j) => j.location), ['New York']);
   assert.equal(seen['https://acme.com/jobs/2'].status, 'skipped_location');
   assert.equal(seen['https://acme.com/jobs/4'].status, 'skipped_title');
+});
+
+test('web scan: only job postings, places read from titles, one role per company + title', () => {
+  assert.equal(isPosting('https://www.adexchanger.com/the-programmatic-power-players-2023/'), false);
+  assert.equal(isPosting('https://jobs.careers.microsoft.com/global/en/job/1789'), true);
+  assert.equal(isPosting('https://boards.greenhouse.io/acme/jobs/1'), true);
+  assert.equal(placeFromTitle('Senior Product Designer, Monetization United States, Washington, Redmond'), 'United States, Redmond');
+  assert.equal(placeFromTitle('Lead Ad Monetisation Manager'), '');
+  const place = (loc) => !loc || /lisbon|remote/i.test(loc);
+  const job = (title, n) => ({ company: 'Acme', title, location: '', url: `https://acme.com/jobs/${n}` });
+  const run = sortJobs([job('Sales Lead', 1), job('Sales Lead', 2), job('Sales Lead, United States', 3)], { matches: () => true, place, seen: {}, today: '2026-10-29' });
+  assert.deepEqual(run.fresh.map((j) => j.url.at(-1)), ['1']);
+  assert.equal(run.dupes, 1);
+  assert.deepEqual(run.elsewhere.map((j) => j.url.at(-1)), ['3']);
 });

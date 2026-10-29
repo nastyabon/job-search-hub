@@ -11,7 +11,7 @@ import { startEvaluation, recoverEvaluations } from './server/evaluate.mjs';
 import { reportHtml } from './server/report-html.mjs';
 import { findPreview, findAdd } from './server/find.mjs';
 import { matchNewCompanies } from './server/connections.mjs';
-import { markContacted, undo, setAppStatus, checkLive, runScan, rankOpenings, isScanning, firstScan, addNote, weekTick, trackApplication, addOpenings, scanTitles, scanCompanies, hideItem, unhideItem, dropContact, APP_STATES } from './server/actions.mjs';
+import { markContacted, undo, setAppStatus, checkLive, runScan, rankOpenings, isScanning, scanState, onScanChange, firstScan, addNote, weekTick, trackApplication, addOpenings, scanTitles, scanCompanies, hideItem, unhideItem, dropContact, APP_STATES } from './server/actions.mjs';
 import { runChat, readThread, undoChat, chatBusy, listThreads } from './server/chat.mjs';
 
 // The "tiny Node server", inside the Vite dev server.
@@ -27,7 +27,7 @@ import { runChat, readThread, undoChat, chatBusy, listThreads } from './server/c
 //   POST /api/action/week       {kind: post|prep, hours}  tick this week's manual boxes
 //   POST /api/action/track      {company, role, date, status, url, channel, contact}  add a tracker row (career-ops merge)
 //   POST /api/action/openings   {jobs: [{url, company, title, location, posted}]}  add job links to New openings (pipeline.md ## Pending)
-//   POST /api/action/titles     {add: ["Service Designer"]}  also scan for these job titles (portals.yml title_filter.positive)
+//   POST /api/action/titles     {add, remove, exclude}  the scan's job titles (portals.yml title_filter positive / negative)
 //   POST /api/action/companies  {add, off, on, onlyMine}  the scan list: discover-ats for new companies, switch others off/on
 //   POST /api/action/drop       {name, company}  "won't help": contact → cold, follow-up cleared
 //   POST /api/action/hide       {key, label, reason}  hide a Needs-attention row / shelve an opening (hub-data/hidden.yml)
@@ -85,12 +85,13 @@ function hubData() {
         res.end(JSON.stringify({ app: 'job-search-hub', root: path.resolve(import.meta.dirname, '..') }));
       });
 
+      onScanChange(notify); // the page follows each scan step, including the first scan nobody clicked
       server.middlewares.use('/api/data', async (_req, res) => {
         res.setHeader('Content-Type', 'application/json');
         res.setHeader('Cache-Control', 'no-store');
         try {
           if (firstScan()) notify(); // first open after setup: the page shows the welcome notice
-          res.end(JSON.stringify({ ...(await buildPayload()), appStates: APP_STATES, scanning: isScanning() }));
+          res.end(JSON.stringify({ ...(await buildPayload()), appStates: APP_STATES, scanning: isScanning(), scan: scanState() }));
         } catch (err) {
           res.statusCode = 500;
           res.end(JSON.stringify({ error: err.message }));

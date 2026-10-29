@@ -296,25 +296,46 @@ export async function trackApplication({ company, role, date = ymd(new Date()), 
   return { num, company, role, status, date };
 }
 
-// "Also scan for X roles": adds keywords to title_filter.positive in career-ops' portals.yml (its user
-// layer, the scan settings the user owns). Comments and order kept; skips ones already there. Undo.
-export function scanTitles({ add = [] }) {
+// The scan's job titles (portals.yml title_filter, career-ops' user layer), when the user asks:
+//   add: keywords a title must contain one of (positive), e.g. "Service Designer".
+//   remove: positive keywords that let in too much, e.g. a bare "Monetization" that also matches
+//           "Product Designer, Monetization".
+//   exclude: keywords that drop a title (negative), e.g. "Designer" for someone in sales.
+// Undo restores the file.
+export function scanTitles({ add = [], remove = [], exclude = [] }) {
   const file = path.join(CAREER_OPS, 'portals.yml');
   const before = fs.readFileSync(file, 'utf8');
   const doc = parseDocument(before);
   if (doc.errors.length) throw new Error(`portals.yml: ${doc.errors[0].message}`);
-  const want = [...new Set((Array.isArray(add) ? add : [add]).map((k) => String(k ?? '').replace(/\s+/g, ' ').trim()).filter(Boolean))];
-  if (!want.length) throw new Error('Which job titles?');
-  if (!doc.hasIn(['title_filter', 'positive'])) doc.setIn(['title_filter', 'positive'], doc.createNode([]));
-  const list = doc.getIn(['title_filter', 'positive']);
-  const have = new Set((list.items ?? []).map((i) => String(i?.value ?? i).toLowerCase()));
-  const added = want.filter((k) => !have.has(k.toLowerCase()));
-  if (!added.length) throw new Error('Those titles are already in your scan');
-  for (const k of added) list.add(k);
-  list.flow = false;
+  const clean = (v) => [...new Set((Array.isArray(v) ? v : [v]).map((k) => String(k ?? '').replace(/\s+/g, ' ').trim()).filter(Boolean))];
+  const list = (side) => {
+    if (!doc.hasIn(['title_filter', side])) doc.setIn(['title_filter', side], doc.createNode([]));
+    const seq = doc.getIn(['title_filter', side]);
+    seq.flow = false;
+    return seq;
+  };
+  const value = (i) => String(i?.value ?? i);
+  const addTo = (side, want) => {
+    const seq = list(side);
+    const have = new Set((seq.items ?? []).map((i) => value(i).toLowerCase()));
+    const fresh = clean(want).filter((k) => !have.has(k.toLowerCase()));
+    for (const k of fresh) seq.add(k);
+    return fresh;
+  };
+  const added = clean(add).length ? addTo('positive', add) : [];
+  const excluded = clean(exclude).length ? addTo('negative', exclude) : [];
+  const removed = [];
+  if (clean(remove).length) {
+    const drop = new Set(clean(remove).map((k) => k.toLowerCase()));
+    const seq = list('positive');
+    for (let i = seq.items.length - 1; i >= 0; i--) {
+      if (drop.has(value(seq.items[i]).replace(/^(word|stem):/, '').toLowerCase())) { removed.unshift(value(seq.items[i])); seq.delete(i); }
+    }
+  }
+  if (!added.length && !removed.length && !excluded.length) throw new Error('Your scan titles already look like that');
   const after = doc.toString({ lineWidth: 0 });
   fs.writeFileSync(file, after);
-  return { added, undo: remember(file, before, after) };
+  return { added, removed, excluded, undo: remember(file, before, after) };
 }
 
 // The scan list (portals.yml tracked_companies, career-ops' user layer). Job titles can't tell
@@ -397,16 +418,29 @@ export function addOpenings({ jobs = [] }) {
 }
 
 let scanning = null;
+let scanStep = ''; // boards → pages → scoring, for the page while a scan runs
+let firstRun = false; // the scan firstScan started
+let scanChanged = () => {};
+// The server's page notifier: called at each step and at the end, so the page follows a scan it didn't start.
+export const onScanChange = (fn) => { scanChanged = fn; };
 export function runScan() {
-  scanning ??= (async () => {
+  if (scanning) return scanning;
+  const step = (s) => { scanStep = s; scanChanged(); };
+  scanning = (async () => {
+    step('boards');
     const scan = await run(['scan.mjs'], 10 * 60_000);
     // Then the companies scan.mjs can't read (no public job board): their careers pages, else a web search.
+    step('pages');
     const web = await webScan().catch((e) => ({ error: e.message }));
+    step('scoring');
     const rank = await rankOpenings().catch((e) => ({ ok: false, output: e.message }));
     return { scan: scan.ok, web: { added: web.added ?? 0, error: web.error ?? '' }, ranked: rank.ok, rankNote: rank.ok ? '' : rank.output.split('\n').slice(-2).join(' ') };
-  })().finally(() => { scanning = null; });
+  })().finally(() => { scanning = null; scanStep = ''; firstRun = false; scanChanged(); });
   return scanning;
 }
+// While a scan runs: its step and whether it's the first one. career-ops writes the scan's summary
+// after the job boards, so "has a last scan" isn't "finished".
+export const scanState = () => (scanning ? { step: scanStep, first: firstRun } : null);
 
 // The first time the hub opens after setup, it starts the first scan by itself, so New openings
 // isn't empty with nothing saying what to do. Once only (hub-data/first-scan.json), and never
@@ -423,6 +457,7 @@ export function firstScan() {
   fs.writeFileSync(marker, `${JSON.stringify({ at: new Date().toISOString(), started: !scannedBefore })}\n`);
   if (scannedBefore) return false;
   runScan().catch(() => { /* the page shows "Run your first scan" when nothing came of it */ });
+  firstRun = true;
   return true;
 }
 

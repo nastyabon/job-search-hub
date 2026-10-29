@@ -182,6 +182,17 @@ a { color: inherit; }
 .loading { padding: 40px; }
 .notice { color: var(--signal); background: var(--signal-bg); border-radius: 8px; padding: 7px 11px; font-size: 12.5px; }
 .notice.error { margin: 20px; }
+.low-fit-toggle { margin: 10px 0 0 4px; }
+/* titles the scan keeps dropping: a card above the funnel, calm like the welcome note */
+.title-suggest { margin: 0 0 14px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); display: grid; gap: 8px; }
+.title-suggest p { margin: 0; }
+.title-suggest-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.title-suggest-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.title-suggest-list label { display: flex; align-items: baseline; gap: 8px; cursor: pointer; }
+.title-suggest-list input { margin: 0; transform: translateY(1px); }
+.title-suggest-name { color: var(--text); font-weight: 500; }
+.title-suggest-roles { margin: 0; padding-left: 18px; display: grid; gap: 2px; max-height: 220px; overflow: auto; }
+.title-suggest-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 
 /* ── home ─────────────────────────────────────────────────────────── */
 

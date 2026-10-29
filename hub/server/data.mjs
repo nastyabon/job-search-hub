@@ -248,6 +248,14 @@ export function parsePipeline(md) {
     });
 }
 
+// The same role under two links (a careers page listing it twice): shown once, the better-scored one.
+export function dedupeOpenings(openings) {
+  const k = (o) => [o.company, o.title, o.location].map((s) => String(s ?? '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim()).join('|');
+  const best = new Map();
+  for (const o of openings) { const prev = best.get(k(o)); if (!prev || (o.score ?? -1) > (prev.score ?? -1)) best.set(k(o), o); }
+  return openings.filter((o) => best.get(k(o)) === o);
+}
+
 function readPipeline(errors) {
   let openings = [];
   try {
@@ -255,6 +263,7 @@ function readPipeline(errors) {
   } catch (err) {
     if (err.code !== 'ENOENT') errors.push(`pipeline.md: ${err.message}`);
   }
+  openings = dedupeOpenings(openings);
   let lastScan = null;
   try {
     const lines = fs.readFileSync(path.join(CAREER_OPS, 'data', 'scan-runs.tsv'), 'utf8').trim().split('\n');
@@ -330,6 +339,29 @@ export function sortFiltered(filtered, titleFilter, { fold, compile, compilePosi
   return out;
 }
 
+// Titles the scan keeps dropping that look close to the user's (sortFiltered's `close` group),
+// grouped so "Senior Account Director, EMEA" and "Account Director - London" count as one:
+// what follows a comma, dash, bar, slash or bracket (team, place) and a leading level word go.
+// Only titles seen at least twice, most common first, so the hub can offer "also scan for these".
+const LEVEL_PREFIX = /^((senior|sr\.?|junior|jr\.?|principal|staff|associate|lead|global|regional)\s+)+/i;
+export function titleOf(title) {
+  return String(title ?? '').split(/\s+[-–—|\/]\s+|,|\(|\||\//)[0].replace(LEVEL_PREFIX, '').replace(/\s+(i{1,3}|iv|\d+)$/i, '').replace(/\s+/g, ' ').trim();
+}
+export function suggestTitles(close, { max = 8 } = {}) {
+  const groups = new Map();
+  for (const j of close) {
+    const name = titleOf(j.title);
+    if (name.split(' ').length < 2 || name.length > 60) continue; // "Manager" alone says nothing
+    const k = name.toLowerCase();
+    const g = groups.get(k) ?? { title: name, count: 0, companies: [], roles: [] };
+    g.count += 1;
+    if (!g.companies.includes(j.company)) g.companies.push(j.company);
+    g.roles.push({ title: j.title, company: j.company, url: j.url });
+    groups.set(k, g);
+  }
+  return [...groups.values()].filter((g) => g.count >= 2).sort((a, b) => b.count - a.count || a.title.localeCompare(b.title)).slice(0, max);
+}
+
 // career-ops' matcher when it's there; a plain substring match otherwise.
 let keywordLib = null;
 async function titleKeywords() {
@@ -341,7 +373,8 @@ async function titleKeywords() {
 async function readFilterView(filtered) {
   let titleFilter = null;
   try { titleFilter = loadYaml(fs.readFileSync(path.join(CAREER_OPS, 'portals.yml'), 'utf8'))?.title_filter ?? null; } catch { /* no scan settings */ }
-  return sortFiltered(filtered, titleFilter, await titleKeywords());
+  const view = sortFiltered(filtered, titleFilter, await titleKeywords());
+  return { ...view, suggest: suggestTitles(view.close) };
 }
 
 // ── assembly ──────────────────────────────────────────────────────────

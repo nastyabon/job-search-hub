@@ -722,6 +722,11 @@ function FitScore({ score, reason }) {
   return <Chip kind={kind} title={reason}>{score.toFixed(1)}/5</Chip>;
 }
 
+// Scored under 2/5: the quick score found the location, the role or the link itself wrong
+// (its reason says which). Folded away under the list rather than mixed in.
+const LOW_FIT = 2;
+const lowFit = (o) => o.score != null && o.score < LOW_FIT;
+
 function Openings({ data }) {
   const { open, item } = usePanel();
   const openUrl = item?.focus === 'opening' ? item.ref : null;
@@ -729,6 +734,27 @@ function Openings({ data }) {
   // Best match first; unscored roles after scored ones, newest posting first.
   const openings = [...data.pipeline.openings].sort((a, b) => a.shelved - b.shelved || (b.score ?? -1) - (a.score ?? -1) || b.posted.localeCompare(a.posted));
   const unscored = openings.filter((o) => o.score == null).length;
+  const main = openings.filter((o) => !lowFit(o));
+  const low = openings.filter(lowFit);
+  const [showLow, setShowLow] = useState(false);
+  const row = (o) => (
+    <li key={o.url} className={`row clickable${o.shelved ? ' shelved' : ''}${o.url === openUrl ? ' on' : ''}`} aria-current={o.url === openUrl || undefined} onClick={rowClick(open, { company: o.company, focus: 'opening', ref: o.url })}>
+      <FitScore score={o.score} reason={o.reason} />
+      <span className="row-main">
+        <span className="row-title">{o.company}</span>
+        <span className="row-sub"> {o.title}</span>
+        <span className="row-note">{[o.location ? dedupeList(o.location) : 'Location not listed: check it on the posting', o.reason].filter(Boolean).join(' · ')}</span>
+        <EvalNote data={data} target={{ url: o.url, opening: true }} />
+      </span>
+      <span className="row-meta">
+        <EvaluateButton data={data} target={{ url: o.url, company: o.company, role: o.title }} />
+        {o.isNew && !o.shelved && <Chip kind="new" title="Found by the latest scan">New</Chip>}
+        {o.shelved && <Chip kind="undated">Shelved</Chip>}
+        {!ATS_HOSTS.test(o.host) && !ownSite(o) && <Chip kind="via" title="Found on a job board, not the company's own site: confirm it at the employer before applying">via {o.host.split('.').slice(-2, -1)[0] || o.host}</Chip>}
+        {o.posted && <span className="date" title="Posted">{fmtShort(o.posted)}</span>}
+      </span>
+    </li>
+  );
   const [busy, setBusy] = useState('');
   const scanning = busy === 'scan' || data.scanning;
   const act = (action) => async () => {
@@ -746,7 +772,7 @@ function Openings({ data }) {
   };
   const when = lastScan && new Date(lastScan.at).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
   return (
-    <Section id="openings" title="New openings" count={openings.length}
+    <Section id="openings" title="New openings" count={main.length}
       aside={lastScan ? `Last scan ${when}` : scanning ? 'First scan running' : 'Not scanned yet'}
       action={(
         <span className="check-all">
@@ -759,34 +785,94 @@ function Openings({ data }) {
           <button type="button" className={lastScan ? 'btn' : 'btn btn-primary'} onClick={act('scan')} disabled={Boolean(busy) || scanning} title="Scan job boards and the careers pages of companies without one, then score the new roles. A few minutes; the web search part uses a little of your Claude plan.">{scanning ? 'Scanning…' : 'Scan now'}</button>
         </span>
       )}>
+      {lastScan && <TitleSuggestions suggest={data.pipeline.filtered.suggest ?? []} scanning={scanning} onScan={act('scan')} />}
       {lastScan && <ScanFunnel scan={lastScan} web={data.pipeline.web} filtered={data.pipeline.filtered} />}
       <div className="group">
         <ul className="list">
-          {openings.length === 0 && (
-            <Empty>{scanning ? 'Scanning your target companies. New roles show here in a few minutes.' : lastScan ? 'No new matches waiting.' : 'Not scanned yet. Press Scan now to find openings at your target companies.'}</Empty>
+          {main.length === 0 && (
+            <Empty>{low.length ? `Nothing scored ${LOW_FIT}/5 or more this time.` : scanning ? 'Scanning your target companies. New roles show here in a few minutes.' : lastScan ? 'No new matches waiting.' : 'Not scanned yet. Press Scan now to find openings at your target companies.'}</Empty>
           )}
-          {openings.map((o) => (
-            <li key={o.url} className={`row clickable${o.shelved ? ' shelved' : ''}${o.url === openUrl ? ' on' : ''}`} aria-current={o.url === openUrl || undefined} onClick={rowClick(open, { company: o.company, focus: 'opening', ref: o.url })}>
-              <FitScore score={o.score} reason={o.reason} />
-              <span className="row-main">
-                <span className="row-title">{o.company}</span>
-                <span className="row-sub"> {o.title}</span>
-                {(o.location || o.reason) && <span className="row-note">{[dedupeList(o.location), o.reason].filter(Boolean).join(' · ')}</span>}
-                <EvalNote data={data} target={{ url: o.url, opening: true }} />
-              </span>
-              <span className="row-meta">
-                <EvaluateButton data={data} target={{ url: o.url, company: o.company, role: o.title }} />
-                {o.isNew && !o.shelved && <Chip kind="new" title="Found by the latest scan">New</Chip>}
-                {o.shelved && <Chip kind="undated">Shelved</Chip>}
-                {!ATS_HOSTS.test(o.host) && !ownSite(o) && <Chip kind="via" title="Found on a job board, not the company's own site: confirm it at the employer before applying">via {o.host.split('.').slice(-2, -1)[0] || o.host}</Chip>}
-                {o.posted && <span className="date" title="Posted">{fmtShort(o.posted)}</span>}
-              </span>
-            </li>
-          ))}
+          {main.map(row)}
         </ul>
+        {low.length > 0 && (
+          <>
+            <button type="button" className="linkish small low-fit-toggle" onClick={() => setShowLow((x) => !x)} aria-expanded={showLow}>
+              {showLow ? 'Hide' : 'Show'} {plural(low.length, 'role')} scored under {LOW_FIT}/5
+            </button>
+            {showLow && <ul className="list">{low.map(row)}</ul>}
+          </>
+        )}
       </div>
       {openings.length > 0 && <p className="muted small hint">Scores are a quick read of the title against your CV. For a full evaluation of a good one (job description, location rules, tailored CV), press Evaluate.</p>}
     </Section>
+  );
+}
+
+// Job titles the last scan kept dropping that look close to the user's (data.mjs suggestTitles),
+// with "also scan for these". Closing it (or adding) hides those titles for good; only new ones
+// bring the card back. Remembered in this browser only.
+const SUGGEST_SEEN = 'hub.title-suggest-seen';
+const readSeen = () => { try { return new Set(JSON.parse(localStorage.getItem(SUGGEST_SEEN) ?? '[]')); } catch { return new Set(); } };
+function TitleSuggestions({ suggest, scanning, onScan }) {
+  const [seen, setSeen] = useState(readSeen);
+  const fresh = suggest.filter((g) => !seen.has(g.title.toLowerCase()));
+  const [picked, setPicked] = useState(() => new Set(fresh.filter((g) => g.count >= 3).map((g) => g.title)));
+  const [showRoles, setShowRoles] = useState(false);
+  const [added, setAdded] = useState(null);
+  const hide = () => {
+    const next = new Set([...seen, ...fresh.map((g) => g.title.toLowerCase())]);
+    try { localStorage.setItem(SUGGEST_SEEN, JSON.stringify([...next])); } catch { /* private window: shows again next time */ }
+    setSeen(next);
+  };
+  if (added) {
+    return (
+      <div className="title-suggest">
+        <p className="small"><b>The next scan also looks for {added.join(', ')}.</b></p>
+        <button type="button" className="btn btn-sm btn-primary" onClick={() => { setAdded(null); onScan(); }} disabled={scanning}>{scanning ? 'Scanning…' : 'Scan now'}</button>
+      </div>
+    );
+  }
+  if (!fresh.length) return null;
+  const toggle = (t) => setPicked((p) => { const n = new Set(p); if (n.has(t)) n.delete(t); else n.add(t); return n; });
+  const add = async () => {
+    try {
+      const r = await post('titles', { add: [...picked] });
+      hide();
+      setAdded(r.added);
+      showToast(`The next scan also looks for ${r.added.join(', ')}`, 'ok', () => post('undo', { id: r.undo }));
+    } catch (e) { showToast(e.message, 'bad'); }
+  };
+  const total = fresh.reduce((n, g) => n + g.count, 0);
+  return (
+    <div className="title-suggest">
+      <div className="title-suggest-head">
+        <p className="small"><b>These job titles came up often but aren't in your scan</b></p>
+        <button type="button" className="icon-btn" onClick={hide} aria-label="Not now" title="Not now: these titles won't be suggested again"><XClose size={14} /></button>
+      </div>
+      <p className="small muted">{plural(total, 'role')} the last scan dropped look close to your profile. Tick the titles you'd apply for.</p>
+      <ul className="title-suggest-list">
+        {fresh.map((g) => (
+          <li key={g.title}>
+            <label className="small">
+              <input type="checkbox" checked={picked.has(g.title)} onChange={() => toggle(g.title)} />
+              <span className="title-suggest-name">{g.title}</span>
+              <span className="muted"> · {plural(g.count, 'role')} · {g.companies.slice(0, 3).join(', ')}{g.companies.length > 3 ? ` +${g.companies.length - 3}` : ''}</span>
+            </label>
+          </li>
+        ))}
+      </ul>
+      {showRoles && (
+        <ul className="title-suggest-roles">
+          {fresh.filter((g) => picked.has(g.title)).flatMap((g) => g.roles).map((j) => (
+            <li key={j.url} className="small"><a href={j.url} target="_blank" rel="noreferrer noopener">{j.title}</a> <span className="muted">· {j.company}</span></li>
+          ))}
+        </ul>
+      )}
+      <div className="title-suggest-actions">
+        <button type="button" className="btn btn-sm btn-primary" onClick={add} disabled={!picked.size}>{picked.size ? `Also scan for ${plural(picked.size, 'title')}` : 'Tick a title'}</button>
+        {picked.size > 0 && <button type="button" className="linkish small" onClick={() => setShowRoles((x) => !x)} aria-expanded={showRoles}>{showRoles ? 'Hide the roles' : 'See the roles'}</button>}
+      </div>
+    </div>
   );
 }
 
@@ -1227,10 +1313,10 @@ function BestOpenings({ data }) {
   const { open } = usePanel();
   const [busy, run] = useScan();
   const scanning = busy || data.scanning;
-  const top = data.pipeline.openings.filter((o) => !o.shelved).sort((a, b) => (b.score ?? -1) - (a.score ?? -1)).slice(0, 3);
+  const top = data.pipeline.openings.filter((o) => !o.shelved && !lowFit(o)).sort((a, b) => (b.score ?? -1) - (a.score ?? -1)).slice(0, 3);
   return (
     <section className="home-block">
-      <HomeHead title="Best new openings" href="#/openings" count={data.pipeline.openings.length} />
+      <HomeHead title="Best new openings" href="#/openings" count={data.pipeline.openings.filter((o) => !lowFit(o)).length} />
       {top.length === 0 && <p className="home-empty">Nothing new waiting. <button type="button" className="linkish" onClick={run} disabled={scanning}>{scanning ? 'Scanning…' : 'Scan now'}</button></p>}
       <ul className="list">
         {top.map((o) => (
@@ -1316,9 +1402,21 @@ function NewWeekNotice() {
 
 // Before the first scan: the hub starts it by itself on the first open after setup
 // (actions.mjs firstScan); this says so. If that scan didn't happen or failed, a Scan now button.
+const SCAN_STEP = {
+  boards: 'checking job boards',
+  pages: 'reading the careers pages of companies without a job board',
+  scoring: 'scoring the new roles against your CV',
+};
 function FirstScanNotice({ data }) {
   const [busy, setBusy] = useState(false);
-  if (data.pipeline.lastScan || data.pipeline.web) return null;
+  // Stays until the whole scan is done (job boards, careers pages, scoring), then says how it went.
+  const running = Boolean(data.scan?.first) || busy || (data.scanning && !data.pipeline.lastScan && !data.pipeline.web);
+  const wasRunning = useRef(false);
+  useEffect(() => {
+    if (wasRunning.current && !running) showToast(`First scan finished: ${plural(data.pipeline.openings.length, 'role')} in New openings`);
+    wasRunning.current = running;
+  }, [running, data.pipeline.openings.length]);
+  if (!running && (data.pipeline.lastScan || data.pipeline.web)) return null;
   const scan = async () => {
     setBusy(true);
     try {
@@ -1330,10 +1428,11 @@ function FirstScanNotice({ data }) {
       setBusy(false);
     }
   };
-  if (data.scanning || busy) {
+  if (running) {
+    const step = SCAN_STEP[data.scan?.step];
     return (
-      <div className="notice first-scan" role="status">
-        <span><span className="typing" aria-hidden="true"><span /><span /><span /></span><b>Welcome to your hub.</b> Your first scan is running: it checks your target companies' job boards and careers pages, then scores the new roles against your CV. A few minutes; look around meanwhile. They'll show in <a href="#/openings">New openings</a>.</span>
+      <div className="notice first-scan" role="status" aria-live="polite">
+        <span><span className="typing" aria-hidden="true"><span /><span /><span /></span><b>Welcome to your hub.</b> Your first scan is running: it checks your target companies' job boards and careers pages, then scores the new roles against your CV. A few minutes; look around meanwhile. They'll show in <a href="#/openings">New openings</a>.{step && <> <b>Now: {step}.</b></>}</span>
       </div>
     );
   }
@@ -2697,7 +2796,7 @@ const ACTION_RUN = {
   status: (a) => post('status', { num: a.num, status: a.status }),
   track: (a) => post('track', a),
   openings: (a) => post('openings', { jobs: a.jobs }),
-  titles: (a) => post('titles', { add: a.add }),
+  titles: (a) => post('titles', { add: a.add, remove: a.remove, exclude: a.exclude }),
   companies: (a) => post('companies', { add: a.add, off: a.off, on: a.on, onlyMine: a.onlyMine }),
   scan: () => post('scan'),
   live: () => post('live'),
@@ -2715,7 +2814,7 @@ function ActionButton({ action }) {
     try {
       const r = await ACTION_RUN[action.type](action);
       setState('done');
-      if (action.type === 'titles') showToast(`The next scan also looks for ${r.added.join(', ')}`, 'ok', () => post('undo', { id: r.undo }));
+      if (action.type === 'titles') showToast([r.added.length && `The next scan also looks for ${r.added.join(', ')}`, r.removed.length && `no longer matches ${r.removed.join(', ')}`, r.excluded.length && `skips titles with ${r.excluded.join(', ')}`].filter(Boolean).join('; '), 'ok', () => post('undo', { id: r.undo }));
       else if (action.type === 'companies') showToast(scanListNote(r), 'ok', () => post('undo', { id: r.undo }));
       else showToast(action.type === 'openings' ? `Added ${r.added} to New openings${r.skipped?.length ? ` · ${r.skipped.length} already there` : ''}` : `Done: ${action.label}`);
     } catch (e) { setState(''); showToast(e.message, 'bad'); }
