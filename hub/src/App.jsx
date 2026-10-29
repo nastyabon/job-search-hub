@@ -574,7 +574,7 @@ function Applications({ data }) {
         </Group>
       ))}
       {apps.untracked.length > 0 && (
-        <Group icon={<StatusIcon status="untracked" />} title="Not in tracker yet" count={apps.untracked.length} aside="press Evaluate to add it with a fit report">
+        <Group icon={<StatusIcon status="untracked" />} title="Not in tracker yet" count={apps.untracked.length} aside="press Full report to add it with a fit report">
           {apps.untracked.map((u) => (
             <li key={`${u.company}-${u.role}`} className="row row-app untracked clickable" onClick={rowClick(open, { company: u.company, focus: 'app', ref: `u:${u.role}` })}>
               <span className="row-id">—</span>
@@ -719,7 +719,7 @@ const ownSite = (o) => { const name = o.company.toLowerCase().replace(/[^a-z0-9]
 function FitScore({ score, reason }) {
   if (score == null) return <Chip kind="unscored" title="Not scored yet">–/5</Chip>;
   const kind = score >= 4 ? 'fit-high' : score >= 3 ? 'fit-mid' : 'fit-low';
-  return <Chip kind={kind} title={reason}>{score.toFixed(1)}/5</Chip>;
+  return <Chip kind={kind} title={`Quick score: the job title against your CV${reason ? `. ${reason}` : ''}`}>{score.toFixed(1)}/5</Chip>;
 }
 
 // Scored under 2/5: the quick score found the location, the role or the link itself wrong
@@ -803,7 +803,7 @@ function Openings({ data }) {
           </>
         )}
       </div>
-      {openings.length > 0 && <p className="muted small hint">Scores are a quick read of the title against your CV. For a full evaluation of a good one (job description, location rules, tailored CV), press Evaluate.</p>}
+      {openings.length > 0 && <p className="muted small hint">Scores are a quick guess from the job title. For a full report and a tailored CV, press Full report.</p>}
     </Section>
   );
 }
@@ -2694,7 +2694,7 @@ function Md({ text }) {
 // Never automatic: every run starts from a confirm. One at a time; progress and outcome come
 // back through data.evaluations.
 
-const EVAL_COST = 'Full evaluation: a fit report and a tailored CV. Takes a few minutes and uses a fair share of your Claude plan.';
+const EVAL_COST = 'Reads the whole job description, then writes a fit report and a CV tailored to this role. A few minutes; uses a fair share of your Claude plan.';
 const EVAL_KEEP = "You can keep using the hub. Keep Claude open until it's done.";
 let askEvaluate = null; // set while <EvalConfirm /> is mounted
 
@@ -2721,19 +2721,19 @@ function EvalConfirm() {
     setBusy(true);
     try {
       await post('evaluate', target);
-      showToast(`Evaluating ${target.company || 'the role'}. ${EVAL_KEEP}`, 'ok');
+      showToast(`Writing the full report for ${target.company || 'the role'}. ${EVAL_KEEP}`, 'ok');
       close(true);
     } catch (e) { showToast(e.message, 'bad'); close(false); } finally { setBusy(false); }
   };
   return (
     <div className="modal-backdrop" onClick={() => close(false)}>
       <div className="modal" role="dialog" aria-modal="true" aria-labelledby="eval-title" onClick={(e) => e.stopPropagation()}>
-        <h3 id="eval-title">Evaluate {[target.company, target.role].filter(Boolean).join(' · ') || 'this role'}?</h3>
+        <h3 id="eval-title">Full report for {[target.company, target.role].filter(Boolean).join(' · ') || 'this role'}?</h3>
         <p>{EVAL_COST}</p>
-        {target.force && <p className="muted small">The pre-check stopped this role last time. This runs the full evaluation anyway.</p>}
+        {target.force && <p className="muted small">The pre-check stopped this role last time. This makes the full report anyway.</p>}
         <div className="modal-actions">
           <button type="button" className="btn" onClick={() => close(false)}>Cancel</button>
-          <button type="button" className="btn btn-primary" onClick={go} disabled={busy} autoFocus>{busy ? 'Starting…' : 'Evaluate'}</button>
+          <button type="button" className="btn btn-primary" onClick={go} disabled={busy} autoFocus>{busy ? 'Starting…' : 'Start the report'}</button>
         </div>
       </div>
     </div>
@@ -2755,13 +2755,13 @@ function evalFor(data, t) {
 function EvaluateButton({ data, target }) {
   const running = (data.evaluations ?? []).find((e) => e.status === 'running');
   const mine = evalFor(data, target);
-  if (mine?.status === 'running') return <Chip kind="evaluating" title={mine.step || 'Starting'}>Evaluating…</Chip>;
+  if (mine?.status === 'running') return <Chip kind="evaluating" title={mine.step || 'Starting'}>Writing report…</Chip>;
   if (mine?.status === 'done') return null;
   const other = Boolean(running);
   const stopped = mine?.status === 'stopped';
   const again = mine && ['failed', 'interrupted'].includes(mine.status);
-  const text = other ? `Waiting for ${running.company || 'another role'}` : stopped ? 'Evaluate anyway' : again ? 'Run again' : 'Evaluate';
-  const why = other ? `One evaluation at a time: Claude is evaluating ${running.company || 'another role'}. This one can start when it's done.` : EVAL_COST;
+  const text = other ? `Waiting for ${running.company || 'another role'}` : stopped ? 'Full report anyway' : again ? 'Run again' : 'Full report';
+  const why = other ? `One report at a time: Claude is writing the report for ${running.company || 'another role'}. This one can start when it's done.` : EVAL_COST;
   return (
     <button type="button" className="btn btn-sm" disabled={other} title={why}
       onClick={(ev) => { ev.stopPropagation(); requestEvaluate({ url: target.url || '', company: target.company, role: target.role, num: target.num || '', ...(stopped ? { force: true } : {}) }); }}>
@@ -2778,7 +2778,7 @@ function EvalNote({ data, target }) {
   if (e.status === 'stopped') return <span className="row-note eval-note">The pre-check stopped it: not a fit. Claude explains why in the company's chat.</span>;
   if (e.status === 'interrupted') return <span className="row-note eval-note bad">The evaluation stopped when the hub closed. Run it again?</span>;
   if (e.status === 'failed') return <span className="row-note eval-note bad">The evaluation didn't finish: {String(e.error || 'something went wrong').replace(/\.$/, '')}. Run it again?</span>;
-  if (e.status === 'done' && target.opening) return <span className="row-note eval-note">Evaluated{e.score ? `: ${e.score}` : ''}. It's in Applications.</span>;
+  if (e.status === 'done' && target.opening) return <span className="row-note eval-note">Full report done{e.score ? `: ${e.score}` : ''}. It's in Applications.</span>;
   return null;
 }
 
@@ -2820,7 +2820,7 @@ function ActionButton({ action }) {
     } catch (e) { setState(''); showToast(e.message, 'bad'); }
   };
   // Adding a role ("track") or jobs ("openings") says Add, so it doesn't read as applying to the job.
-  const [verb, busy, doneWord] = action.type === 'evaluate' ? ['Evaluate', 'Applying…', 'Started']
+  const [verb, busy, doneWord] = action.type === 'evaluate' ? ['Full report', 'Applying…', 'Started']
     : action.type === 'track' || action.type === 'openings' ? ['Add', 'Adding…', 'Added']
     : ['Apply', 'Applying…', 'Applied'];
   const done = <><Check size={14} className="ico-inline" /> {doneWord}</>;

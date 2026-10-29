@@ -63,7 +63,7 @@ export function recoverEvaluations() {
   let changed = false;
   for (const e of list) {
     if (e.status === 'running') {
-      Object.assign(e, { status: 'interrupted', endedAt: new Date().toISOString(), error: 'The hub stopped before the evaluation finished.' });
+      Object.assign(e, { status: 'interrupted', endedAt: new Date().toISOString(), error: 'The hub stopped before the full report finished.' });
       changed = true;
     }
   }
@@ -121,7 +121,7 @@ function evalPrompt(e) {
   ].join('\n');
 }
 
-// What the run is doing, in plain words for the page ("Evaluating: reading the job description").
+// What the run is doing, in plain words for the page ("Writing the full report: reading the job description").
 function stepLabel(tool, company) {
   const i = tool.input ?? {};
   const cmd = String(i.command ?? '');
@@ -167,10 +167,10 @@ export function startEvaluation({ url = '', company = '', role = '', num = '', j
   url = String(url).trim();
   jd = String(jd || readJdFile(jdFile)).trim();
   if (url && !/^https?:\/\/\S+$/.test(url)) throw new Error('That link doesn\'t look like a job posting URL.');
-  if (!url && !String(jd).trim()) throw new Error('Evaluate needs a job link or a pasted job description.');
-  if (/(^|\.)(linkedin\.com|lnkd\.in)$/i.test(hostOf(url)) && !jd) throw new Error('Evaluations never open LinkedIn. Paste this link in the company\'s chat and ask Claude to evaluate it: it reads the page once and passes the job text on. Or use the employer\'s own posting link.');
+  if (!url && !String(jd).trim()) throw new Error('A full report needs a job link or a pasted job description.');
+  if (/(^|\.)(linkedin\.com|lnkd\.in)$/i.test(hostOf(url)) && !jd) throw new Error('Full reports never open LinkedIn. Paste this link in the company\'s chat and ask Claude for a full report: it reads the page once and passes the job text on. Or use the employer\'s own posting link.');
   const running = runningEvaluation();
-  if (running) throw new Error(`Claude is still evaluating ${running.company || 'another role'}. One evaluation at a time: this one can start when it's done.`);
+  if (running) throw new Error(`Claude is still writing the report for ${running.company || 'another role'}. One report at a time: this one can start when it's done.`);
   if (!claudeBin()) throw new Error(NO_CLAUDE);
   const e = { id: Date.now().toString(36), url, company: String(company).trim(), role: String(role).trim(), num: String(num ?? '').trim(), force: Boolean(force), status: 'running', step: 'Starting', startedAt: new Date().toISOString() };
   saveEvaluations([...readEvaluations(), e]);
@@ -239,7 +239,7 @@ async function run(e, jd) {
   data.messages.push({
     role: 'assistant', kind: 'evaluation', at: new Date().toISOString(), text,
     files: outputFiles(text), changed: [], actions: [], undo: null,
-    note: stopped ? 'Pre-check stopped the evaluation: nothing was written.' : row ? '' : 'The evaluation finished, but no tracker row changed.',
+    note: stopped ? 'The quick pre-check stopped the full report: nothing was written.' : row ? '' : 'The full report finished, but no tracker row changed.',
   });
   writeThread(thread, data);
 
