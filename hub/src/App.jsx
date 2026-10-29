@@ -725,7 +725,8 @@ function FitScore({ score, reason }) {
 // Scored under 2/5: the quick score found the location, the role or the link itself wrong
 // (its reason says which). Folded away under the list rather than mixed in.
 const LOW_FIT = 2;
-const lowFit = (o) => o.score != null && o.score < LOW_FIT;
+// Low fit: a quick score under 2/5, or a location outside the user's rules (server/location-fit.mjs).
+const lowFit = (o) => Boolean(o.outside) || (o.score != null && o.score < LOW_FIT);
 
 function Openings({ data }) {
   const { open, item } = usePanel();
@@ -743,7 +744,7 @@ function Openings({ data }) {
       <span className="row-main">
         <span className="row-title">{o.company}</span>
         <span className="row-sub"> {o.title}</span>
-        <span className="row-note">{[o.location ? dedupeList(o.location) : 'Location not listed: check it on the posting', o.reason].filter(Boolean).join(' · ')}</span>
+        <span className="row-note">{[o.location ? dedupeList(o.location) : 'Location not listed: check it on the posting', o.outside, o.reason].filter(Boolean).join(' · ')}</span>
         <EvalNote data={data} target={{ url: o.url, opening: true }} />
       </span>
       <span className="row-meta">
@@ -797,7 +798,7 @@ function Openings({ data }) {
         {low.length > 0 && (
           <>
             <button type="button" className="linkish small low-fit-toggle" onClick={() => setShowLow((x) => !x)} aria-expanded={showLow}>
-              {showLow ? 'Hide' : 'Show'} {plural(low.length, 'role')} scored under {LOW_FIT}/5
+              {showLow ? 'Hide' : 'Show'} {plural(low.length, 'role')} scored under {LOW_FIT}/5{low.some((o) => o.outside) ? ' or outside where you work' : ''}
             </button>
             {showLow && <ul className="list">{low.map(row)}</ul>}
           </>

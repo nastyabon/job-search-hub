@@ -12,6 +12,7 @@ import { parseDocument, Scalar, parse as parseYaml, stringify as toYaml } from '
 import { HUB_DATA, CAREER_OPS, LIVENESS_FILE, ymd, reportUrl, noteSlug, isoWeek } from './data.mjs';
 import { claudeEnv } from './claude-bin.mjs';
 import { webScan } from './web-scan.mjs';
+import { checkLocations } from './location-fit.mjs';
 
 const OUTREACH = path.join(HUB_DATA, 'outreach.yml');
 const norm = (s) => String(s ?? '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
@@ -516,7 +517,11 @@ export function firstScan() {
   return true;
 }
 
-export function rankOpenings() {
-  return run(['rank-pipeline.mjs', '--limit', '20'], 10 * 60_000);
+// Then the hub checks each location against location_rules (location-fit.mjs): the quick score
+// never sees them, so on-site roles in the wrong city would otherwise score high.
+export async function rankOpenings() {
+  const r = await run(['rank-pipeline.mjs', '--limit', '20'], 10 * 60_000);
+  await checkLocations().catch((e) => console.log(`[location-fit] ${e.message}`));
+  return r;
 }
 export const isScanning = () => Boolean(scanning);

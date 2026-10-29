@@ -257,6 +257,19 @@ export function dedupeOpenings(openings) {
   return openings.filter((o) => best.get(k(o)) === o);
 }
 
+// Where each opening's location fits the user's location_rules, as checked by location-fit.mjs
+// after each scoring run: { rules, places: { "<location, lowercased>": { ok, why } } }.
+export const placeKey = (location) => String(location ?? '').toLowerCase().replace(/\s+/g, ' ').trim();
+export function readLocationFit() {
+  try { return JSON.parse(fs.readFileSync(path.join(HUB_DATA, 'location-fit.json'), 'utf8')); } catch { return { rules: '', places: {} }; }
+}
+// { outside: "why" } when the opening's location is known not to fit the current rules, else {}.
+export function locationVerdict(fit, rules, location) {
+  if (!rules || fit.rules !== rules || !location) return {};
+  const v = fit.places?.[placeKey(location)];
+  return v?.ok === false ? { outside: v.why || 'Outside where you work' } : {};
+}
+
 function readPipeline(errors) {
   let openings = [];
   try {
@@ -265,6 +278,9 @@ function readPipeline(errors) {
     if (err.code !== 'ENOENT') errors.push(`pipeline.md: ${err.message}`);
   }
   openings = dedupeOpenings(openings);
+  const fit = readLocationFit();
+  const rules = String(loadProfile().location_rules ?? '').trim();
+  openings = openings.map((o) => ({ ...o, ...locationVerdict(fit, rules, o.location) }));
   let lastScan = null;
   try {
     const lines = fs.readFileSync(path.join(CAREER_OPS, 'data', 'scan-runs.tsv'), 'utf8').trim().split('\n');

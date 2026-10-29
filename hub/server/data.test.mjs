@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { isoWeek, parseTracker, parsePipeline, sortFiltered, dedupeOpenings } from './data.mjs';
+import { isoWeek, parseTracker, parsePipeline, sortFiltered, dedupeOpenings, locationVerdict } from './data.mjs';
 
 test('isoWeek matches ISO 8601, including year boundaries', () => {
   assert.deepEqual(isoWeek(new Date(2026, 9, 20)), { id: '2026-W43', start: '2026-10-19', end: '2026-10-25' });
@@ -82,4 +82,14 @@ test('dedupeOpenings: the same role and place under two links shows once; no loc
   const o = (url, score, location) => ({ url, company: 'Acme', title: 'Lead Partnerships Manager', location, score });
   assert.deepEqual(dedupeOpenings([o('a', 3.5, 'London'), o('b', null, 'London'), o('c', 4, 'London')]).map((x) => x.url), ['c']);
   assert.deepEqual(dedupeOpenings([o('a', 3.5, ''), o('b', 3.5, '')]).map((x) => x.url), ['a', 'b']);
+});
+
+test('locationVerdict: only a "no" for the current rules folds an opening', () => {
+  const fit = { rules: 'Lisbon on-site, remote in Europe', places: { 'porto, portugal': { ok: false, why: 'On-site in Porto' }, 'remote, germany': { ok: true, why: '' }, emea: { ok: null, why: '' } } };
+  assert.deepEqual(locationVerdict(fit, fit.rules, 'Porto,  Portugal'), { outside: 'On-site in Porto' });
+  assert.deepEqual(locationVerdict(fit, fit.rules, 'Remote, Germany'), {});
+  assert.deepEqual(locationVerdict(fit, fit.rules, 'EMEA'), {});
+  assert.deepEqual(locationVerdict(fit, fit.rules, ''), {});
+  // Rules changed since the check: nothing folds until it runs again.
+  assert.deepEqual(locationVerdict(fit, 'Berlin only', 'Porto, Portugal'), {});
 });
