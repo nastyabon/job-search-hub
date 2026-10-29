@@ -4,7 +4,7 @@
 //      page (headless, read-only, no Claude usage).
 //   2. No careers_url, the page couldn't be read, or it listed nothing: one short web search
 //      (`claude -p`, sonnet, web tools only, never LinkedIn pages), cached SEARCH_DAYS per company.
-// Every job goes through portals.yml's title_filter (career-ops' own matcher). Matches go under
+// Every job goes through portals.yml's title_filter and location_filter (career-ops' own matchers). Matches go under
 // ## Pending in data/pipeline.md (addOpenings), so rank-pipeline.mjs scores them next. Companies
 // come from portals.yml tracked_companies plus outreach.yml companies that aren't in it.
 // State in hub-data/web-scan/: seen.json (url → first_seen, status; a job is offered once),
@@ -50,7 +50,7 @@ export async function targetsToScan({ root = CAREER_OPS, outreachFile = path.joi
     if (!c?.name || c.status === 'parked' || inPortals.has(key(c.name)) || targets.some((t) => key(t.name) === key(c.name))) continue;
     targets.push({ name: String(c.name).trim(), careers_url: '' });
   }
-  return { targets, titleFilter: portals.title_filter ?? null };
+  return { targets, titleFilter: portals.title_filter ?? null, locationFilter: portals.location_filter ?? null };
 }
 
 // career-ops' own title matcher, so a role passes here exactly when it would pass scan.mjs.
@@ -63,6 +63,19 @@ async function titleMatcher(titleFilter, root) {
     const pos = (titleFilter.positive ?? []).map((k) => String(k).replace(/^(word|stem):/, '').toLowerCase());
     const neg = (titleFilter.negative ?? []).map((k) => String(k).replace(/^(word|stem):/, '').toLowerCase());
     return (title) => { const t = String(title).toLowerCase(); return (!pos.length || pos.some((k) => t.includes(k))) && !neg.some((k) => t.includes(k)); };
+  }
+}
+
+// career-ops' own location matcher (scan.mjs), so web-scanned jobs keep to the same places.
+// No location on a job: it passes, as in scan.mjs (unless location_filter.strict).
+async function locationMatcher(locationFilter, root) {
+  if (!locationFilter) return () => true;
+  try {
+    const { buildLocationFilter } = await importCareerOps(root, 'scan.mjs');
+    return buildLocationFilter(locationFilter);
+  } catch {
+    const allow = [...(locationFilter.always_allow ?? []), ...(locationFilter.allow ?? [])].map((k) => String(k).toLowerCase());
+    return (location) => { const l = String(location ?? '').toLowerCase(); return !l || !allow.length || allow.some((k) => l.includes(k)); };
   }
 }
 
@@ -127,29 +140,32 @@ async function pool(items, size, fn) {
 
 const searchFile = (company) => path.join(DIR, `search-${noteSlug(company)}.json`);
 
-// Sorts one run's jobs into new / seen before / filtered by title. Pure, for the tests.
-export function sortJobs(jobs, { matches, seen, today }) {
+// Sorts one run's jobs into new / seen before / filtered by title / filtered by location.
+// Pure, for the tests.
+export function sortJobs(jobs, { matches, place = () => true, seen, today }) {
   const fresh = [];
   const filtered = [];
+  const elsewhere = [];
   let dupes = 0;
   const urls = new Set();
   for (const j of jobs) {
     if (urls.has(j.url)) continue;
     urls.add(j.url);
     if (seen[j.url]) { dupes += 1; continue; }
-    if (matches(j.title)) fresh.push(j);
-    else filtered.push(j);
-    seen[j.url] = { first_seen: today, company: j.company, title: j.title, status: matches(j.title) ? 'added' : 'skipped_title' };
+    const status = !matches(j.title) ? 'skipped_title' : !place(j.location, j.url, j.title) ? 'skipped_location' : 'added';
+    ({ added: fresh, skipped_title: filtered, skipped_location: elsewhere })[status].push(j);
+    seen[j.url] = { first_seen: today, company: j.company, title: j.title, status };
   }
-  return { fresh, filtered, dupes };
+  return { fresh, filtered, elsewhere, dupes };
 }
 
 export async function webScan({ root = CAREER_OPS, now = new Date() } = {}) {
   const today = ymd(now);
-  const { targets, titleFilter } = await targetsToScan({ root });
-  const run = { at: now.toISOString(), companies: [], found: 0, dupes: 0, filteredTitle: 0, added: 0, filtered: [], waiting: [] };
+  const { targets, titleFilter, locationFilter } = await targetsToScan({ root });
+  const run = { at: now.toISOString(), companies: [], found: 0, dupes: 0, filteredTitle: 0, filteredLocation: 0, added: 0, filtered: [], waiting: [] };
   if (!targets.length) { writeJson(path.join(DIR, 'last.json'), run); return run; }
   const matches = await titleMatcher(titleFilter, root);
+  const place = await locationMatcher(locationFilter, root);
   const jobs = [];
   const take = (company, list, via) => {
     const clean = list.filter((j) => j?.title && /^https?:\/\//.test(j.url ?? '') && !/linkedin\.com|lnkd\.in/i.test(j.url))
@@ -191,19 +207,23 @@ export async function webScan({ root = CAREER_OPS, now = new Date() } = {}) {
     }
   }
 
-  // 3. Title filter, then New openings.
+  // 3. Title and location filters, then New openings.
   const seenFile = path.join(DIR, 'seen.json');
   const seen = readJson(seenFile, {});
-  const { fresh, filtered, dupes } = sortJobs(jobs, { matches, seen, today });
+  const { fresh, filtered, elsewhere, dupes } = sortJobs(jobs, { matches, place, seen, today });
   run.found = jobs.length;
   run.dupes = dupes;
   run.filteredTitle = filtered.length;
-  run.filtered = filtered.map(({ company, title, url }) => ({ company, title, url }));
+  run.filteredLocation = elsewhere.length;
+  run.filtered = [
+    ...filtered.map(({ company, title, url }) => ({ company, title, url, reason: 'title' })),
+    ...elsewhere.map(({ company, title, url, location }) => ({ company, title, url, location, reason: 'location' })),
+  ];
   if (fresh.length) {
     try { run.added = addOpenings({ jobs: fresh }).added; } catch { run.added = 0; /* all already in the pipeline or tracker */ }
   }
   writeJson(seenFile, seen);
   writeJson(path.join(DIR, 'last.json'), run);
-  console.log(`[web-scan] ${targets.length} companies: ${run.found} jobs, ${run.dupes} seen before, ${run.filteredTitle} filtered by title, ${run.added} new`);
+  console.log(`[web-scan] ${targets.length} companies: ${run.found} jobs, ${run.dupes} seen before, ${run.filteredTitle} filtered by title, ${run.filteredLocation} by location, ${run.added} new`);
   return run;
 }

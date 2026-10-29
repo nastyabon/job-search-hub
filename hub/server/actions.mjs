@@ -317,6 +317,47 @@ export function scanTitles({ add = [] }) {
   return { added, undo: remember(file, before, after) };
 }
 
+// The scan list (portals.yml tracked_companies, career-ops' user layer). Job titles can't tell
+// industries apart, so this list is what keeps a scan in the user's field.
+//   add: names → career-ops' own `discover-ats.mjs --write` (finds the job board; those it can't
+//        place are still scanned from outreach.yml by web-scan.mjs).
+//   off / on: set `enabled: false` / remove it on those entries.
+//   onlyMine: switch off every company that isn't in outreach.yml (or is parked there): the
+//        starter list career-ops ships with (AI and software firms) unless the user picked them.
+// preview: say what would change, write nothing (scripts/scan-list.mjs). Undo restores portals.yml.
+export async function scanCompanies({ add = [], off = [], on = [], onlyMine = false, preview = false }) {
+  const file = path.join(CAREER_OPS, 'portals.yml');
+  const before = fs.readFileSync(file, 'utf8');
+  const names = (list) => [...new Set((Array.isArray(list) ? list : [list]).map((n) => String(n ?? '').replace(/\s+/g, ' ').trim()).filter(Boolean))];
+  const tracked = (text) => (parseYaml(text)?.tracked_companies ?? []).filter((c) => c?.name);
+  const toAdd = names(add).filter((n) => !tracked(before).some((c) => norm(c.name) === norm(n)));
+  let placed = [];
+  if (toAdd.length && !preview) {
+    const r = await run(['discover-ats.mjs', ...toAdd, '--write'], 5 * 60_000);
+    const now = new Set(tracked(fs.readFileSync(file, 'utf8')).map((c) => norm(c.name)));
+    placed = toAdd.filter((n) => now.has(norm(n)));
+    if (!r.ok && !placed.length) throw new Error(r.output.split('\n').slice(-2).join(' '));
+  }
+  const doc = parseDocument(fs.readFileSync(file, 'utf8'));
+  if (doc.errors.length) throw new Error(`portals.yml: ${doc.errors[0].message}`);
+  const mine = new Set((parseYaml(fs.readFileSync(OUTREACH, 'utf8'))?.companies ?? []).filter((c) => c?.name && c.status !== 'parked').map((c) => norm(c.name)));
+  const offSet = new Set(names(off).map(norm));
+  const onSet = new Set([...names(on), ...placed].map(norm));
+  const switched = { off: [], on: [] };
+  for (const item of doc.get('tracked_companies')?.items ?? []) {
+    const name = norm(item.get?.('name'));
+    if (!name) continue;
+    const enabled = item.get('enabled') !== false;
+    if (onSet.has(name) && !enabled) { item.set('enabled', true); switched.on.push(item.get('name')); }
+    else if (enabled && !onSet.has(name) && (offSet.has(name) || (onlyMine && !mine.has(name)))) { item.set('enabled', false); switched.off.push(item.get('name')); }
+  }
+  if (preview) return { placed: [], notPlaced: toAdd, off: switched.off, on: switched.on };
+  if (switched.off.length || switched.on.length) fs.writeFileSync(file, doc.toString({ lineWidth: 0 }));
+  const after = fs.readFileSync(file, 'utf8');
+  if (after === before) throw new Error(toAdd.length ? `career-ops found no job board for ${toAdd.join(', ')}; they're still scanned from Outreach` : 'Your scan list already looks like that');
+  return { placed, notPlaced: toAdd.filter((n) => !placed.includes(n)), off: switched.off, on: switched.on, undo: remember(file, before, after) };
+}
+
 // "Add these to New openings" (chat proposal, e.g. the jobs on a LinkedIn search page you sent):
 // one `- [ ] {url} | {company} | {title} | {location} | posted: {date}` line per job under
 // ## Pending in career-ops data/pipeline.md, the inbox its header asks you to paste job URLs into.
@@ -365,6 +406,24 @@ export function runScan() {
     return { scan: scan.ok, web: { added: web.added ?? 0, error: web.error ?? '' }, ranked: rank.ok, rankNote: rank.ok ? '' : rank.output.split('\n').slice(-2).join(' ') };
   })().finally(() => { scanning = null; });
   return scanning;
+}
+
+// The first time the hub opens after setup, it starts the first scan by itself, so New openings
+// isn't empty with nothing saying what to do. Once only (hub-data/first-scan.json), and never
+// before setup is done (cv.md, portals.yml, no unticked step in setup-progress.md) or when a scan
+// already ran. The page shows a welcome notice while it runs.
+export function firstScan() {
+  const marker = path.join(HUB_DATA, 'first-scan.json');
+  const has = (file) => fs.existsSync(path.join(CAREER_OPS, file));
+  if (scanning || fs.existsSync(marker) || !has('cv.md') || !has('portals.yml')) return false;
+  let progress = '';
+  try { progress = fs.readFileSync(path.join(HUB_DATA, 'setup-progress.md'), 'utf8'); } catch { /* none: setup predates it */ }
+  if (/^\s*- \[ \]/m.test(progress)) return false;
+  const scannedBefore = has('data/scan-runs.tsv') || fs.existsSync(path.join(HUB_DATA, 'web-scan', 'last.json'));
+  fs.writeFileSync(marker, `${JSON.stringify({ at: new Date().toISOString(), started: !scannedBefore })}\n`);
+  if (scannedBefore) return false;
+  runScan().catch(() => { /* the page shows "Run your first scan" when nothing came of it */ });
+  return true;
 }
 
 export function rankOpenings() {

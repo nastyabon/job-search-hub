@@ -747,7 +747,7 @@ function Openings({ data }) {
   const when = lastScan && new Date(lastScan.at).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
   return (
     <Section id="openings" title="New openings" count={openings.length}
-      aside={lastScan ? `Last scan ${when}` : 'Not scanned yet'}
+      aside={lastScan ? `Last scan ${when}` : scanning ? 'First scan running' : 'Not scanned yet'}
       action={(
         <span className="check-all">
           {unscored > 0 && !scanning && (
@@ -756,14 +756,14 @@ function Openings({ data }) {
             </button>
           )}
           <button type="button" className="btn" onClick={() => open({ kind: 'posts' })} title="Paste a LinkedIn post search: find people hiring">Hiring posts</button>
-          <button type="button" className="btn" onClick={act('scan')} disabled={Boolean(busy) || scanning} title="Scan job boards and the careers pages of companies without one, then score the new roles. A few minutes; the web search part uses a little of your Claude plan.">{scanning ? 'Scanning…' : 'Scan now'}</button>
+          <button type="button" className={lastScan ? 'btn' : 'btn btn-primary'} onClick={act('scan')} disabled={Boolean(busy) || scanning} title="Scan job boards and the careers pages of companies without one, then score the new roles. A few minutes; the web search part uses a little of your Claude plan.">{scanning ? 'Scanning…' : 'Scan now'}</button>
         </span>
       )}>
       {lastScan && <ScanFunnel scan={lastScan} web={data.pipeline.web} filtered={data.pipeline.filtered} />}
       <div className="group">
         <ul className="list">
           {openings.length === 0 && (
-            <Empty>No new matches waiting.</Empty>
+            <Empty>{scanning ? 'Scanning your target companies. New roles show here in a few minutes.' : lastScan ? 'No new matches waiting.' : 'Not scanned yet. Press Scan now to find openings at your target companies.'}</Empty>
           )}
           {openings.map((o) => (
             <li key={o.url} className={`row clickable${o.shelved ? ' shelved' : ''}${o.url === openUrl ? ' on' : ''}`} aria-current={o.url === openUrl || undefined} onClick={rowClick(open, { company: o.company, focus: 'opening', ref: o.url })}>
@@ -807,7 +807,7 @@ function ScanFunnel({ scan, web, filtered }) {
   const steps = [
     [scan.dupes + (web?.dupes ?? 0), 'seen in earlier scans'],
     [scan.title + (web?.filteredTitle ?? 0), FILTER_REASON.title],
-    [scan.location, FILTER_REASON.location],
+    [scan.location + (web?.filteredLocation ?? 0), FILTER_REASON.location],
     [scan.age, FILTER_REASON.age],
     [scan.other, 'removed by your other scan filters'],
   ].filter(([n]) => n > 0);
@@ -1314,6 +1314,37 @@ function NewWeekNotice() {
   );
 }
 
+// Before the first scan: the hub starts it by itself on the first open after setup
+// (actions.mjs firstScan); this says so. If that scan didn't happen or failed, a Scan now button.
+function FirstScanNotice({ data }) {
+  const [busy, setBusy] = useState(false);
+  if (data.pipeline.lastScan || data.pipeline.web) return null;
+  const scan = async () => {
+    setBusy(true);
+    try {
+      const r = await post('scan');
+      showToast(r.ranked ? 'Scan finished and new roles scored' : `Scan finished, but scoring failed: ${r.rankNote}`, r.ranked ? undefined : 'bad');
+    } catch (e) {
+      showToast(e.message, 'bad');
+    } finally {
+      setBusy(false);
+    }
+  };
+  if (data.scanning || busy) {
+    return (
+      <div className="notice first-scan" role="status">
+        <span><span className="typing" aria-hidden="true"><span /><span /><span /></span><b>Welcome to your hub.</b> Your first scan is running: it checks your target companies' job boards and careers pages, then scores the new roles against your CV. A few minutes; look around meanwhile. They'll show in <a href="#/openings">New openings</a>.</span>
+      </div>
+    );
+  }
+  return (
+    <div className="notice first-scan" role="status">
+      <span><b>Find your first openings.</b> Scan checks your target companies' job boards and careers pages and scores new roles against your CV. A few minutes.</span>
+      <button type="button" className="btn btn-sm btn-primary" onClick={scan}>Scan now</button>
+    </div>
+  );
+}
+
 function Home({ data }) {
   const apps = data.applications;
   const noPerson = [...(apps.ok ? apps.rows.filter(ACTIVE_APP) : []), ...apps.untracked].filter((r) => !r.contact);
@@ -1324,6 +1355,7 @@ function Home({ data }) {
         <p className="eyebrow">{fmtDay(data.today)} · Week {data.week.id.slice(-2)} · {plural(Math.max(0, daysBetween(data.today, data.week.end)), 'day')} left</p>
         <Headline plan={plan} />
       </header>
+      <FirstScanNotice data={data} />
       {!data.week.fileExists && <NewWeekNotice />}
       <div className="home-grid">
         <div className="home-main">
@@ -2653,11 +2685,20 @@ function EvalNote({ data, target }) {
 
 const reportHref = (r) => `/api/report?name=${encodeURIComponent(r.reportFile)}`;
 
+// What a scan-list change did, in one line (actions.mjs scanCompanies).
+const scanListNote = (r) => [
+  r.placed.length && `Job board found for ${r.placed.join(', ')}`,
+  r.notPlaced.length && `${r.notPlaced.join(', ')}: no job board, scanned from Outreach`,
+  r.off.length && `${plural(r.off.length, 'company')} switched off`,
+  r.on.length && `${r.on.join(', ')} switched back on`,
+].filter(Boolean).join(' · ') + '. The next scan uses it.';
+
 const ACTION_RUN = {
   status: (a) => post('status', { num: a.num, status: a.status }),
   track: (a) => post('track', a),
   openings: (a) => post('openings', { jobs: a.jobs }),
   titles: (a) => post('titles', { add: a.add }),
+  companies: (a) => post('companies', { add: a.add, off: a.off, on: a.on, onlyMine: a.onlyMine }),
   scan: () => post('scan'),
   live: () => post('live'),
   rank: () => post('rank'),
@@ -2675,6 +2716,7 @@ function ActionButton({ action }) {
       const r = await ACTION_RUN[action.type](action);
       setState('done');
       if (action.type === 'titles') showToast(`The next scan also looks for ${r.added.join(', ')}`, 'ok', () => post('undo', { id: r.undo }));
+      else if (action.type === 'companies') showToast(scanListNote(r), 'ok', () => post('undo', { id: r.undo }));
       else showToast(action.type === 'openings' ? `Added ${r.added} to New openings${r.skipped?.length ? ` · ${r.skipped.length} already there` : ''}` : `Done: ${action.label}`);
     } catch (e) { setState(''); showToast(e.message, 'bad'); }
   };

@@ -38,3 +38,15 @@ test('sortJobs: new matches, filtered titles, and jobs seen in an earlier run', 
   assert.deepEqual(again.fresh.map((j) => j.title), ['Senior Product Designer']);
   assert.equal(again.dupes, 1);
 });
+
+test('sortJobs: matching titles outside the user\'s locations are filtered, not added', () => {
+  const matches = (t) => /sales/i.test(t);
+  const place = (loc) => !loc || /lisbon|remote/i.test(loc);
+  const seen = {};
+  const job = (title, location, n) => ({ company: 'Acme', title, location, url: `https://acme.com/jobs/${n}` });
+  const run = sortJobs([job('Sales Manager', 'Lisbon', 1), job('Sales Manager', 'New York', 2), job('Sales Lead', '', 3), job('Engineer', 'Lisbon', 4)], { matches, place, seen, today: '2026-10-29' });
+  assert.deepEqual(run.fresh.map((j) => j.url.at(-1)), ['1', '3']);
+  assert.deepEqual(run.elsewhere.map((j) => j.location), ['New York']);
+  assert.equal(seen['https://acme.com/jobs/2'].status, 'skipped_location');
+  assert.equal(seen['https://acme.com/jobs/4'].status, 'skipped_title');
+});

@@ -148,7 +148,7 @@ a { color: inherit; }
 .rail {
   position: sticky; top: 0; height: 100vh; z-index: 7; width: 56px; overflow: hidden;
   border-right: 1px solid var(--line); background: var(--bg);
-  display: flex; flex-direction: column; align-items: stretch; gap: 4px; padding: 14px 10px;
+  display: flex; flex-direction: column; align-items: stretch; gap: 12px; padding: 14px 10px;
   transition: width 0.15s var(--ease); /* closing: quick */
 }
 /* hover (after a beat, so passing over it doesn't open it) or keyboard focus: the width grows
@@ -160,7 +160,7 @@ a { color: inherit; }
 .rail-count { flex: none; margin-left: auto; font: 500 11px/1 var(--font-mono); color: var(--ink-3); }
 .rail-count.due { color: var(--signal); }
 .rail:hover .rail-badge, .rail:focus-within .rail-badge { visibility: hidden; transition: visibility 0s 0.15s; }
-.rail-logo { width: 30px; height: 30px; display: grid; place-items: center; color: var(--ink); margin: 0 0 12px 3px; }
+.rail-logo { width: 30px; height: 30px; display: grid; place-items: center; color: var(--ink); margin: 0 0 16px 3px; }
 .rail-item { position: relative; height: 36px; border-radius: 8px; display: flex; align-items: center; gap: 12px; padding: 0 9px; overflow: hidden; color: var(--ink-3); text-decoration: none; transition: color 0.12s, background 0.12s; }
 .rail-item svg { flex: none; }
 .rail-item:hover { color: var(--ink); }
@@ -1048,6 +1048,10 @@ body { font-size: 14px; font-feature-settings: 'lnum', 'tnum' 0; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
 .tips { margin: 4px 0 8px; padding-left: 18px; }
 .tips li p { margin: 0; }
+/* welcome before the first scan: calm, not a warning */
+.notice.first-scan { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 0 0 16px; color: var(--muted); background: var(--surface); border: 1px solid var(--line); padding: 12px 14px; font-size: 13px; }
+.notice.first-scan b { color: var(--text); }
+.notice.first-scan .typing { display: inline-flex; margin-right: 8px; vertical-align: middle; }
 .notice.new-week { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 0 0 16px; }
 
 /* Untitled UI icons sitting in a line of text ("Posting ↗", "✓ Applied"). */

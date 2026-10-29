@@ -10,11 +10,12 @@ import { logoFor } from './server/logos.mjs';
 import { startEvaluation, recoverEvaluations } from './server/evaluate.mjs';
 import { reportHtml } from './server/report-html.mjs';
 import { findPreview, findAdd } from './server/find.mjs';
-import { markContacted, undo, setAppStatus, checkLive, runScan, rankOpenings, isScanning, addNote, weekTick, trackApplication, addOpenings, scanTitles, hideItem, unhideItem, dropContact, APP_STATES } from './server/actions.mjs';
+import { matchNewCompanies } from './server/connections.mjs';
+import { markContacted, undo, setAppStatus, checkLive, runScan, rankOpenings, isScanning, firstScan, addNote, weekTick, trackApplication, addOpenings, scanTitles, scanCompanies, hideItem, unhideItem, dropContact, APP_STATES } from './server/actions.mjs';
 import { runChat, readThread, undoChat, chatBusy, listThreads } from './server/chat.mjs';
 
 // The "tiny Node server", inside the Vite dev server.
-//   GET  /api/data       the full dashboard payload
+//   GET  /api/data       the full dashboard payload (the first one after setup also starts the first scan)
 //   GET  /api/events     server-sent "change" events when any data file changes
 //   POST /api/action/contacted  {name, company}  tick a follow-up: messaged today, next in 7 days
 //   POST /api/action/status     {num, status}    career-ops set-status.mjs on a tracker row
@@ -27,6 +28,7 @@ import { runChat, readThread, undoChat, chatBusy, listThreads } from './server/c
 //   POST /api/action/track      {company, role, date, status, url, channel, contact}  add a tracker row (career-ops merge)
 //   POST /api/action/openings   {jobs: [{url, company, title, location, posted}]}  add job links to New openings (pipeline.md ## Pending)
 //   POST /api/action/titles     {add: ["Service Designer"]}  also scan for these job titles (portals.yml title_filter.positive)
+//   POST /api/action/companies  {add, off, on, onlyMine}  the scan list: discover-ats for new companies, switch others off/on
 //   POST /api/action/drop       {name, company}  "won't help": contact → cold, follow-up cleared
 //   POST /api/action/hide       {key, label, reason}  hide a Needs-attention row / shelve an opening (hub-data/hidden.yml)
 //   POST /api/action/unhide     {key} or {keys}  bring hidden items back
@@ -43,7 +45,7 @@ import { runChat, readThread, undoChat, chatBusy, listThreads } from './server/c
 //   GET  /api/cv-file?name=…    a tailored CV from career-ops/output
 //   GET  /api/prep-file?name=…  an interview prep file from career-ops/interview-prep
 //   POST /api/chat              {thread, message, context}  streams NDJSON events (see server/chat.mjs)
-const ACTIONS = { contacted: markContacted, undo, status: setAppStatus, live: checkLive, scan: runScan, rank: rankOpenings, note: addNote, week: weekTick, track: trackApplication, openings: addOpenings, titles: scanTitles, hide: hideItem, unhide: unhideItem, drop: dropContact, 'chat-undo': undoChat, 'alumni-preview': alumniPreview, 'alumni-add': alumniAdd, 'people-preview': peoplePreview, 'people-add': peopleAdd, 'posts-preview': postsPreview, 'posts-add': postsAdd, evaluate: startEvaluation, 'find-preview': findPreview, 'find-add': findAdd };
+const ACTIONS = { contacted: markContacted, undo, status: setAppStatus, live: checkLive, scan: runScan, rank: rankOpenings, note: addNote, week: weekTick, track: trackApplication, openings: addOpenings, titles: scanTitles, companies: scanCompanies, hide: hideItem, unhide: unhideItem, drop: dropContact, 'chat-undo': undoChat, 'alumni-preview': alumniPreview, 'alumni-add': alumniAdd, 'people-preview': peoplePreview, 'people-add': peopleAdd, 'posts-preview': postsPreview, 'posts-add': postsAdd, evaluate: startEvaluation, 'find-preview': findPreview, 'find-add': findAdd };
 
 // HUB_PORT lets a second copy (e.g. a design branch) run next to the main hub. Default 5199.
 const PORT = Number(process.env.HUB_PORT) || 5199;
@@ -63,6 +65,10 @@ function hubData() {
     name: 'hub-data',
     configureServer(server) {
       recoverEvaluations(); // a run still marked running was cut short when the hub stopped
+      // A company added to outreach.yml (chat, Find, by hand): add the LinkedIn connections there.
+      let matchTimer;
+      const matchSoon = () => { clearTimeout(matchTimer); matchTimer = setTimeout(() => { try { matchNewCompanies(); } catch (e) { console.warn(`[connections] ${e.message}`); } }, 500); };
+      matchSoon();
       const clients = new Set();
       let timer;
       const notify = () => {
@@ -70,7 +76,7 @@ function hubData() {
         timer = setTimeout(() => clients.forEach((res) => res.write('data: change\n\n')), 150);
       };
       // Cached logos aren't data: writing one shouldn't reload the page.
-      const watchers = WATCH_DIRS.filter((dir) => fs.existsSync(dir)).map((dir) => fs.watch(dir, { recursive: true }, (_e, f) => { if (!String(f ?? '').startsWith('logos')) notify(); }));
+      const watchers = WATCH_DIRS.filter((dir) => fs.existsSync(dir)).map((dir) => fs.watch(dir, { recursive: true }, (_e, f) => { if (String(f ?? '') === 'outreach.yml') matchSoon(); if (!String(f ?? '').startsWith('logos')) notify(); }));
       server.httpServer?.on('close', () => watchers.forEach((w) => w.close()));
 
       // Lets scripts/start.mjs tell this hub (this folder) from any other program on the port.
@@ -83,6 +89,7 @@ function hubData() {
         res.setHeader('Content-Type', 'application/json');
         res.setHeader('Cache-Control', 'no-store');
         try {
+          if (firstScan()) notify(); // first open after setup: the page shows the welcome notice
           res.end(JSON.stringify({ ...(await buildPayload()), appStates: APP_STATES, scanning: isScanning() }));
         } catch (err) {
           res.statusCode = 500;

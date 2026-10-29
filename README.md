@@ -28,7 +28,7 @@ You update it in plain words ("Messaged Sam today, follow up Monday") and Claude
 - A paid Claude plan (Pro or higher).
 - Node.js 22.13 or newer, and git.
 - Claude Code. The desktop app alone isn't enough: the hub calls `claude -p` in the background, so setup installs its own copy and signs it in to your account.
-- About 25 minutes for setup. Have these ready: your CV (all versions, if you have several for different kinds of roles; Claude combines them), the salary range you're after, and 5 to 15 companies you'd like to work at.
+- About 30 minutes for setup. Have these ready: your CV (all versions, if you have several for different kinds of roles; Claude combines them), the salary range you're after, and a few companies you'd like to work at (Claude suggests more in your field).
 
 ## Quick install
 

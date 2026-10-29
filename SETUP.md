@@ -1,8 +1,8 @@
 # Setup (Claude follows this)
 
-The person you're setting up probably doesn't use a terminal. Do every technical step yourself, explain in plain words what's happening, and never ask them to type a command. Ask a few questions at a time, not a form. Aim for about 25 minutes. Keep it moving: anything that can wait (rebuilding their CV's design, the deeper career questions) goes on the "later" list in step 7, not into setup.
+The person you're setting up probably doesn't use a terminal. Do every technical step yourself, explain in plain words what's happening, and never ask them to type a command. Ask a few questions at a time, not a form. Aim for about 30 minutes. Keep it moving: anything that can wait (rebuilding their CV's design, the deeper career questions) goes on the "later" list in step 7, not into setup.
 
-Start by saying, in your own words: "I'll set up your Job Search Hub. It takes about 25 minutes: first I'll install a few things, then I'll ask you about your job search. It helps to have these ready: your CV (all of them, if you have versions for different kinds of roles), the salary range you're after, and 5 to 15 companies you'd like to work at. Everything stays on this computer. You can skip any question or stop at any point and continue later."
+Start by saying, in your own words: "I'll set up your Job Search Hub. It takes about 30 minutes: first I'll install a few things, then I'll ask you about your job search. It helps to have these ready: your CV (all of them, if you have versions for different kinds of roles), the salary range you're after, and a few companies you'd like to work at (I'll suggest more in your field). Everything stays on this computer. You can skip any question or stop at any point and continue later."
 
 At the start of each step, say where they are and how long it takes, in one line: "Step 2 of 7: your CV (about 5 minutes)." Rough times: 1 install 3 min · 2 CV and job targets 8 min · 3 hub profile 3 min · 4 companies 5 min · 5 weekly targets 1 min · 6 LinkedIn connections 2 min · 7 open it 2 min.
 
@@ -25,7 +25,7 @@ If the user is in the wrong place (for example Documents, with the hub in `Docum
 ## Stopping and resuming
 
 - **Skipping:** everything except the CV can be skipped or left for later ("I'll add companies later", "skip LinkedIn"). The CV is needed because job matching and CV tailoring run on it. Leave skipped fields blank; never fill them with guesses.
-- **Progress file:** right after step 1, create `hub-data/setup-progress.md` with one line per step 2–7 (`- [ ] 2. CV and job targets`, …). When a step is finished, tick it (`- [x]`); when they skip it, write `- [x] 4. Target companies (skipped)`.
+- **Progress file:** right after step 1, create `hub-data/setup-progress.md` with one line per step 2–7 (`- [ ] 2. CV and job targets`, …). When a step is finished, tick it (`- [x]`); when they skip it, write `- [x] 4. Field and companies (skipped)`.
 - **Stopping:** if they want to stop, or hit a usage limit, say: "Everything so far is saved. When you're ready, open Claude in the job-search-hub folder and say **continue the setup**."
 - **Resuming** ("continue the setup", or the first-run check in CLAUDE.md §0 sends you here): say hello back, do the hub's-Claude check above, read `hub-data/setup-progress.md`, and continue at the first unticked step. If the file is missing, work it out from the files: `node setup.mjs` not run (no `hub/node_modules`) → step 1; no `career-ops/cv.md` → step 2; `hub-data/profile.yml` has no `name` → step 3; no companies in `outreach.yml` → step 4; no file in `hub-data/weeks/` → step 5. Say in one line what's already done ("Your CV and profile are in. Next: the companies you'd like to work at.") and don't ask again for anything that's already there.
 
@@ -42,7 +42,7 @@ If the user is in the wrong place (for example Documents, with the hub in `Docum
      - **The Claude page shows a code** (it does when they used that link): "Copy the code the page shows and paste it here." Then run `node hub/scripts/sign-in.mjs --code "<what they pasted>"`. Never repeat the code back or save it anywhere else.
      - The background command ends with `SIGNED_IN` (done), or `SIGN_IN_FAILED` / `SIGN_IN_TIMED_OUT`: start it again; each run gets a new link and an old code won't work.
    - Run `node setup.mjs` again. It should show "Claude Code command …, signed in".
-4. **Start the LinkedIn export now** (it arrives by email in 10–30 minutes, so it's ready by step 6): "One thing to start while we go on: LinkedIn can send you a list of your connections, so I can show who you know at each company. On LinkedIn, go to **Me → Settings & Privacy → Data privacy → Get a copy of your data**, pick **Connections**, and click **Request archive**. We'll use it near the end." If they'd rather not, skip it.
+4. **Start the LinkedIn export now** (it takes 10–30 minutes, so it's ready by step 6): "One thing to start while we go on: LinkedIn can send you a list of your connections, so I can show who you know at each company. On LinkedIn, go to **Me → Settings & Privacy → Data privacy → Get a copy of your data**, choose the larger data archive (your connections are part of it), and click **Request archive**. Don't wait for an email: near the end, go back to that page and refresh it, and a Download button shows." If they'd rather not, skip it.
 
 ## 2. Their CV and job targets (career-ops)
 
@@ -81,9 +81,17 @@ Fill `hub-data/profile.yml` from the answers above, then ask only what's still m
 
 Check that the YAML parses (CLAUDE.md §6).
 
-## 4. Target companies
+## 4. Their field and the companies to scan
 
-Ask: "Which companies would you love to work at? Five to fifteen is a good start." For each, add a company to `hub-data/outreach.yml` (`status: researching`) with a `tier` (explain the three tiers from profile.yml and let them rename them), a one-line `why`, a `lead_with`, and the domain in `hub-data/logos/domains.yml`. Then add them to career-ops' job scanner, asking once for all of them: `node discover-ats.mjs <Name>` in career-ops (preview, then `--write` after they say yes). A company with no job board the scanner reads still gets scanned: the hub reads its careers page itself (no Claude usage) or, failing that, runs a short web search. So for each one discover-ats couldn't place, find its careers page (one web search) and add it under `tracked_companies` in `career-ops/portals.yml` with `careers_url` and `scan_method: websearch`, keeping that file's comments and style. Say it in one line: "Three of these have no public job board; the hub will check their careers pages when you scan." Never tell them to check those themselves.
+The scan only finds roles at the companies on its list, and a job title doesn't say which industry it's in: "Partnerships Manager" exists at every company. So the company list is what keeps New openings in their field. Build it here, before the first scan.
+
+1. **Name their field** in one sentence, from `cv.md` and their answers: the industry, what they do, for whom, where. For example: "You work in fintech partnerships: selling payment products to online shops, around Lisbon." Ask "Is that right?" and fix it.
+2. **Companies.** Ask: "Which companies would you love to work at?" Then suggest 10 to 20 more in that field and area, grouped (for example by kind of company), one line on why each. Only companies you're sure exist and fit; if unsure, one web search. They pick; 15 to 30 in all is a good start.
+3. For each one they keep, add a company to `hub-data/outreach.yml` (`status: researching`) with a `tier` (explain the three tiers from profile.yml and let them rename them), a one-line `why`, a `lead_with`, and the domain in `hub-data/logos/domains.yml`.
+4. **Put them on the scan list**, asking once for all of them: `node discover-ats.mjs <Name> <Name> …` in career-ops (preview, then `--write` after they say yes). A company with no job board the scanner reads still gets scanned: the hub reads its careers page itself (no Claude usage) or, failing that, runs a short web search. So for each one discover-ats couldn't place, find its careers page (one web search) and add it under `tracked_companies` in `career-ops/portals.yml` with `careers_url` and `scan_method: websearch`, keeping that file's comments and style. Say it in one line: "Three of these have no public job board; the hub will check their careers pages when you scan." Never tell them to check those themselves.
+5. **The starter companies.** career-ops' `portals.yml` starts with about 100 AI and software companies switched on (count them: enabled `tracked_companies` that aren't theirs). Unless that is their field, say: "career-ops comes with about 100 AI and software companies on its scan list. You're in <field>, so I'll switch them off and scan only your companies. Keep any of them?" Then, from the project root: `node hub/scripts/scan-list.mjs --only-mine` (preview), and `--write` once they agree (it sets `enabled: false`, keeping the file's comments; companies they named to keep go in `--keep "A,B"`). If their field is AI or software, keep the starter list and say so.
+6. **Titles.** `title_filter.positive` should hold the roles they want plus the titles they've had (from `cv.md`) and their usual variants in this field ("Business Development Manager", "Partnerships Manager", "Account Director"). Add missing ones with Edit. Then read `title_filter.negative`: the starter list removes engineering words ("iOS", "Android", "Crypto", "Embedded"…). Name any that would drop real roles in their field ("Partnerships Manager, iOS Apps") and ask before removing them.
+7. **Locations.** Check `location_filter` in portals.yml matches where they'll work. Every scan, including the hub's own scan of companies without a job board, drops roles outside it.
 
 If they already talk to people (a recruiter, a friend at a company), add those as contacts too.
 
@@ -93,7 +101,7 @@ Show the defaults in `hub-data/routine.yml` in plain words ("5–8 messages to e
 
 ## 6. LinkedIn connections (optional, very useful)
 
-If they requested the export in step 1, ask whether LinkedIn's email has arrived. Yes → ask them to drag `Connections.csv` (or the .zip) into the chat and follow CLAUDE.md §6b (save it, then `node hub/scripts/connections-match.mjs --write` adds who they know at their target companies). Not yet → don't wait: put it on the "later" list and go on.
+If they requested the export in step 1, ask them to refresh LinkedIn's "Get a copy of your data" page: is there a Download button? Yes → ask them to drag `Connections.csv` (or the .zip) into the chat and follow CLAUDE.md §6b (save it, then `node hub/scripts/connections-match.mjs --write` adds who they know at their target companies). Not yet → don't wait: put it on the "later" list and go on.
 
 If they didn't request it: explain in one line ("With LinkedIn's list of your connections, I can show who you know at each company; that's often the fastest way to a referral"), give the steps from step 1, and put it on the "later" list. The hub works without it.
 
@@ -105,7 +113,7 @@ Start the hub with `npm start` from the project root, in the background. It open
 - **Three things to try**, exactly these (the setup guide lists the same three):
   1. In **Today**, click **Find** next to your top company. Claude looks for the right person to contact there.
   2. Click a company to open its panel, and ask Claude something about it in the chat.
-  3. On the home screen, click Best new openings, then Scan now. It checks your target companies' job boards and careers pages and scores new roles against your CV. Above the list it shows how many jobs it found and what it filtered out, and why.
+  3. Look at New openings when the first scan is done. The hub starts it by itself the first time it opens: it checks your target companies' job boards and careers pages and scores new roles against your CV (a few minutes). Above the list it shows how many jobs it found and what it filtered out, and why. If the roles look off, say so in the hub's chat: it can change the companies and titles the scan uses.
   If they skipped target companies, Today is empty: make (1) "Tell Claude a company you'd love to work at" instead.
 - **Later, when you want** (only list the ones that apply; each is one sentence they can say to Claude in this folder):
   - "Add my LinkedIn connections export" (if it wasn't ready).

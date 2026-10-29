@@ -293,7 +293,7 @@ function readPipeline(errors) {
     } catch { /* no history */ }
     for (const o of openings) o.isNew = firstSeen.get(o.url) === scanDay || webSeen[o.url]?.first_seen === scanDay;
   }
-  if (web) filtered.push(...(web.filtered ?? []).map((j) => ({ ...j, reason: 'title' })));
+  if (web) filtered.push(...(web.filtered ?? []).map((j) => ({ ...j, reason: j.reason ?? 'title' })));
   return { openings, lastScan, web, filtered };
 }
 
