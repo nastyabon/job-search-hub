@@ -78,7 +78,8 @@ test('a new week file has the §13 header and sections', async () => {
   assert.match(text, /\n## Interview prep \(1 box = 1 hour\)\n(- \[ \] 1h\n)+\n## Notes\n$/);
 });
 
-test('dedupeOpenings: the same role under two links shows once, the better-scored one', () => {
-  const o = (url, score) => ({ url, company: 'Kwalee', title: 'Lead Ad Monetisation Manager', location: '', score });
-  assert.deepEqual(dedupeOpenings([o('a', 3.5), o('b', null), o('c', 4)]).map((x) => x.url), ['c']);
+test('dedupeOpenings: the same role and place under two links shows once; no location, both stay', () => {
+  const o = (url, score, location) => ({ url, company: 'Acme', title: 'Lead Partnerships Manager', location, score });
+  assert.deepEqual(dedupeOpenings([o('a', 3.5, 'London'), o('b', null, 'London'), o('c', 4, 'London')]).map((x) => x.url), ['c']);
+  assert.deepEqual(dedupeOpenings([o('a', 3.5, ''), o('b', 3.5, '')]).map((x) => x.url), ['a', 'b']);
 });

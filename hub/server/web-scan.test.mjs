@@ -56,11 +56,11 @@ test('web scan: only job postings, places read from titles, one role per company
   assert.equal(isPosting('https://jobs.careers.microsoft.com/global/en/job/1789'), true);
   assert.equal(isPosting('https://boards.greenhouse.io/acme/jobs/1'), true);
   assert.equal(placeFromTitle('Senior Product Designer, Monetization United States, Washington, Redmond'), 'United States, Redmond');
-  assert.equal(placeFromTitle('Lead Ad Monetisation Manager'), '');
+  assert.equal(placeFromTitle('Lead Partnerships Manager'), '');
   const place = (loc) => !loc || /lisbon|remote/i.test(loc);
-  const job = (title, n) => ({ company: 'Acme', title, location: '', url: `https://acme.com/jobs/${n}` });
-  const run = sortJobs([job('Sales Lead', 1), job('Sales Lead', 2), job('Sales Lead, United States', 3)], { matches: () => true, place, seen: {}, today: '2026-10-29' });
-  assert.deepEqual(run.fresh.map((j) => j.url.at(-1)), ['1']);
+  const job = (title, n, location = '') => ({ company: 'Acme', title, location, url: `https://acme.com/jobs/${n}` });
+  const run = sortJobs([job('Sales Lead', 1, 'Lisbon'), job('Sales Lead', 2, 'Lisbon'), job('Sales Lead, United States', 3), job('Sales Lead', 4), job('Sales Lead', 5)], { matches: () => true, place, seen: {}, today: '2026-10-29' });
+  assert.deepEqual(run.fresh.map((j) => j.url.at(-1)), ['1', '4', '5']);
   assert.equal(run.dupes, 1);
   assert.deepEqual(run.elsewhere.map((j) => j.url.at(-1)), ['3']);
 });

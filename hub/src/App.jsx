@@ -2788,6 +2788,7 @@ const reportHref = (r) => `/api/report?name=${encodeURIComponent(r.reportFile)}`
 const scanListNote = (r) => [
   r.placed.length && `Job board found for ${r.placed.join(', ')}`,
   r.notPlaced.length && `${r.notPlaced.join(', ')}: no job board, scanned from Outreach`,
+  r.check?.length && `${r.check.map((c) => c.name).join(', ')}: the only job board found looked like another company's, so it's left out (scanned from Outreach)`,
   r.off.length && `${plural(r.off.length, 'company')} switched off`,
   r.on.length && `${r.on.join(', ')} switched back on`,
 ].filter(Boolean).join(' · ') + '. The next scan uses it.';
@@ -2815,7 +2816,7 @@ function ActionButton({ action }) {
       const r = await ACTION_RUN[action.type](action);
       setState('done');
       if (action.type === 'titles') showToast([r.added.length && `The next scan also looks for ${r.added.join(', ')}`, r.removed.length && `no longer matches ${r.removed.join(', ')}`, r.excluded.length && `skips titles with ${r.excluded.join(', ')}`].filter(Boolean).join('; '), 'ok', () => post('undo', { id: r.undo }));
-      else if (action.type === 'companies') showToast(scanListNote(r), 'ok', () => post('undo', { id: r.undo }));
+      else if (action.type === 'companies') showToast(scanListNote(r), 'ok', r.undo && (() => post('undo', { id: r.undo })));
       else showToast(action.type === 'openings' ? `Added ${r.added} to New openings${r.skipped?.length ? ` · ${r.skipped.length} already there` : ''}` : `Done: ${action.label}`);
     } catch (e) { setState(''); showToast(e.message, 'bad'); }
   };

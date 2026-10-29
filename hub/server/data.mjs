@@ -248,9 +248,10 @@ export function parsePipeline(md) {
     });
 }
 
-// The same role under two links (a careers page listing it twice): shown once, the better-scored one.
+// The same role under two links with the same location: shown once, the better-scored one. Without a
+// location it may be one role per office, so both stay.
 export function dedupeOpenings(openings) {
-  const k = (o) => [o.company, o.title, o.location].map((s) => String(s ?? '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim()).join('|');
+  const k = (o) => (o.location ? [o.company, o.title, o.location].map((s) => String(s ?? '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim()).join('|') : o.url);
   const best = new Map();
   for (const o of openings) { const prev = best.get(k(o)); if (!prev || (o.score ?? -1) > (prev.score ?? -1)) best.set(k(o), o); }
   return openings.filter((o) => best.get(k(o)) === o);

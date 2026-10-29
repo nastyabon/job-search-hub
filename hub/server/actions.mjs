@@ -6,6 +6,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import os from 'node:os';
 import { execFile } from 'node:child_process';
 import { parseDocument, Scalar, parse as parseYaml, stringify as toYaml } from 'yaml';
 import { HUB_DATA, CAREER_OPS, LIVENESS_FILE, ymd, reportUrl, noteSlug, isoWeek } from './data.mjs';
@@ -338,10 +339,32 @@ export function scanTitles({ add = [], remove = [], exclude = [] }) {
   return { added, removed, excluded, undo: remember(file, before, after) };
 }
 
+// Other board names to try when career-ops' own guess ("the-paper-company", "globex-group") finds
+// nothing: no separators, no leading "The", no trailing Group / Studios / Inc…
+const NAME_SUFFIX = /\s+(group|studios?|games|labs|technologies|technology|holdings?|international|inc|incorporated|ltd|limited|llc|plc|gmbh|ag|sa|bv|b\.v\.|co|corp|corporation|company)\.?$/i;
+export function slugVariants(name) {
+  const words = (s) => s.toLowerCase().replace(/&/g, '').split(/[^a-z0-9]+/).filter(Boolean);
+  const full = String(name ?? '').trim();
+  const noThe = full.replace(/^the\s+/i, '');
+  let core = noThe;
+  while (NAME_SUFFIX.test(core)) core = core.replace(NAME_SUFFIX, '');
+  const tried = words(full).join('-');
+  const out = [];
+  for (const base of [full, noThe, core]) {
+    const w = words(base);
+    if (w.length) out.push(w.join(''), w.join('-'));
+  }
+  return [...new Set(out)].filter((s) => s && s !== tried);
+}
+
 // The scan list (portals.yml tracked_companies, career-ops' user layer). Job titles can't tell
 // industries apart, so this list is what keeps a scan in the user's field.
 //   add: names → career-ops' own `discover-ats.mjs --write` (finds the job board; those it can't
-//        place are still scanned from outreach.yml by web-scan.mjs).
+//        place are still scanned from outreach.yml by web-scan.mjs). discover-ats tries one board
+//        name ("globex-group"); real ones are often "globexgroup" or "globex", so a company it
+//        can't place is tried again with slugVariants. A board it marks `# verify:` (a few postings,
+//        maybe someone else's) is taken out again and named in `check`, so the
+//        company is scanned from Outreach / its careers page instead.
 //   off / on: set `enabled: false` / remove it on those entries.
 //   onlyMine: switch off every company that isn't in outreach.yml (or is parked there): the
 //        starter list career-ops ships with (AI and software firms) unless the user picked them.
@@ -353,19 +376,50 @@ export async function scanCompanies({ add = [], off = [], on = [], onlyMine = fa
   const tracked = (text) => (parseYaml(text)?.tracked_companies ?? []).filter((c) => c?.name);
   const toAdd = names(add).filter((n) => !tracked(before).some((c) => norm(c.name) === norm(n)));
   let placed = [];
+  const isPlaced = (n) => tracked(fs.readFileSync(file, 'utf8')).some((c) => norm(c.name) === norm(n));
   if (toAdd.length && !preview) {
     const r = await run(['discover-ats.mjs', ...toAdd, '--write'], 5 * 60_000);
-    const now = new Set(tracked(fs.readFileSync(file, 'utf8')).map((c) => norm(c.name)));
-    placed = toAdd.filter((n) => now.has(norm(n)));
+    for (const n of toAdd.filter((x) => !isPlaced(x))) {
+      for (const slug of slugVariants(n)) {
+        const list = path.join(os.tmpdir(), `hub-discover-${process.pid}.yml`);
+        fs.writeFileSync(list, toYaml({ companies: [{ name: n, slug }] }));
+        await run(['discover-ats.mjs', '--in', list, '--write'], 2 * 60_000).catch(() => {});
+        fs.rmSync(list, { force: true });
+        if (isPlaced(n)) break;
+      }
+    }
+    placed = toAdd.filter(isPlaced);
     if (!r.ok && !placed.length) throw new Error(r.output.split('\n').slice(-2).join(' '));
   }
+  // Boards discover-ats wasn't sure of (its entry ends in a `# verify:` comment) come out again,
+  // as text, so the comments around them stay.
+  const unsure = [];
+  if (placed.length) {
+    const lines = fs.readFileSync(file, 'utf8').split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      const m = lines[i].match(/^(\s*)-\s+name:\s*["']?(.+?)["']?\s*$/);
+      if (!m || !placed.some((n) => norm(n) === norm(m[2]))) continue;
+      let end = i + 1;
+      while (end < lines.length && lines[end].startsWith(`${m[1]}  `)) end++;
+      const entry = lines.slice(i, end);
+      if (!entry.some((l) => /^\s*#\s*verify:/.test(l))) continue;
+      unsure.push({ name: m[2], url: (entry.join('\n').match(/careers_url:\s*(\S+)/) ?? [])[1] ?? '' });
+      const from = i > 0 && !lines[i - 1].trim() ? i - 1 : i;
+      lines.splice(from, end - from);
+      i = from - 1;
+    }
+    if (unsure.length) fs.writeFileSync(file, lines.join('\n'));
+  }
+  const check = unsure.map((c) => c.name);
+  placed = placed.filter((n) => !check.some((c) => norm(c) === norm(n)));
   const doc = parseDocument(fs.readFileSync(file, 'utf8'));
   if (doc.errors.length) throw new Error(`portals.yml: ${doc.errors[0].message}`);
   const mine = new Set((parseYaml(fs.readFileSync(OUTREACH, 'utf8'))?.companies ?? []).filter((c) => c?.name && c.status !== 'parked').map((c) => norm(c.name)));
+  const items = doc.get('tracked_companies')?.items ?? [];
   const offSet = new Set(names(off).map(norm));
   const onSet = new Set([...names(on), ...placed].map(norm));
   const switched = { off: [], on: [] };
-  for (const item of doc.get('tracked_companies')?.items ?? []) {
+  for (const item of items) {
     const name = norm(item.get?.('name'));
     if (!name) continue;
     const enabled = item.get('enabled') !== false;
@@ -375,8 +429,9 @@ export async function scanCompanies({ add = [], off = [], on = [], onlyMine = fa
   if (preview) return { placed: [], notPlaced: toAdd, off: switched.off, on: switched.on };
   if (switched.off.length || switched.on.length) fs.writeFileSync(file, doc.toString({ lineWidth: 0 }));
   const after = fs.readFileSync(file, 'utf8');
-  if (after === before) throw new Error(toAdd.length ? `career-ops found no job board for ${toAdd.join(', ')}; they're still scanned from Outreach` : 'Your scan list already looks like that');
-  return { placed, notPlaced: toAdd.filter((n) => !placed.includes(n)), off: switched.off, on: switched.on, undo: remember(file, before, after) };
+  if (after === before && !unsure.length) throw new Error(toAdd.length ? `career-ops found no job board for ${toAdd.join(', ')}; they're still scanned from Outreach` : 'Your scan list already looks like that');
+  const notPlaced = toAdd.filter((n) => !placed.includes(n) && !check.some((c) => norm(c) === norm(n)));
+  return { placed, notPlaced, check: unsure, off: switched.off, on: switched.on, undo: after === before ? undefined : remember(file, before, after) };
 }
 
 // "Add these to New openings" (chat proposal, e.g. the jobs on a LinkedIn search page you sent):

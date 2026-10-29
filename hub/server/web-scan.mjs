@@ -3,7 +3,9 @@
 //   1. A company with a careers_url in portals.yml: career-ops' own browser-extract.mjs reads the
 //      page (headless, read-only, no Claude usage).
 //   2. No careers_url, the page couldn't be read, or it listed nothing: one short web search
-//      (`claude -p`, sonnet, web tools only, never LinkedIn pages), cached SEARCH_DAYS per company.
+//      (`claude -p`, sonnet, web tools only, never LinkedIn pages), cached SEARCH_DAYS per company
+//      when it found jobs. A search that found none is tried again next scan (often the page just
+//      didn't load for it).
 // Every job goes through portals.yml's title_filter and location_filter (career-ops' own matchers). Matches go under
 // ## Pending in data/pipeline.md (addOpenings), so rank-pipeline.mjs scores them next. Companies
 // come from portals.yml tracked_companies plus outreach.yml companies that aren't in it.
@@ -168,7 +170,9 @@ export function placeFromTitle(title) {
 }
 
 // Sorts one run's jobs into new / seen before / filtered by title / filtered by location.
-// The same role under two links (company + title) counts once. Pure, for the tests.
+// The same role under two links counts once, but only when both name the same location: careers
+// pages that list no location often have one role per office (Leamington Spa and Bangalore).
+// Pure, for the tests.
 export function sortJobs(jobs, { matches, place = () => true, seen, today }) {
   const fresh = [];
   const filtered = [];
@@ -179,7 +183,7 @@ export function sortJobs(jobs, { matches, place = () => true, seen, today }) {
   for (const j of jobs) {
     if (urls.has(j.url)) continue;
     urls.add(j.url);
-    const role = `${key(j.company)}|${key(j.title)}|${key(j.location)}`;
+    const role = j.location ? `${key(j.company)}|${key(j.title)}|${key(j.location)}` : j.url;
     if (seen[j.url] || roles.has(role)) { dupes += 1; continue; }
     roles.add(role);
     const where = j.location || placeFromTitle(j.title);
@@ -216,7 +220,7 @@ export async function webScan({ root = CAREER_OPS, now = new Date() } = {}) {
   const stale = [];
   for (const t of toSearch) {
     const cached = readJson(searchFile(t.name), null);
-    if (cached && now - new Date(cached.at) < SEARCH_DAYS * 86_400_000) take(t.name, cached.jobs ?? [], cached.jobs?.length ? 'search' : 'none');
+    if (cached?.jobs?.length && now - new Date(cached.at) < SEARCH_DAYS * 86_400_000) take(t.name, cached.jobs, 'search');
     else stale.push({ ...t, at: cached?.at ?? '' });
   }
   stale.sort((a, b) => a.at.localeCompare(b.at));
@@ -233,6 +237,7 @@ export async function webScan({ root = CAREER_OPS, now = new Date() } = {}) {
     }
     for (const t of batch) {
       const hit = answer.find((c) => key(c.company) === key(t.name)) ?? { jobs: [], note: 'not in the answer' };
+      // Reused by the next scans only when it found jobs; an empty answer is kept for its note and asked again.
       writeJson(searchFile(t.name), { company: t.name, at: now.toISOString(), careers_url: hit.careers_url ?? '', note: hit.note ?? '', jobs: hit.jobs ?? [] });
       take(t.name, hit.jobs ?? [], hit.jobs?.length ? 'search' : 'none');
     }
