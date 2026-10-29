@@ -61,12 +61,31 @@ export function undo({ id }) {
   return {};
 }
 
+// A new week's file in the CLAUDE.md §13 shape: one box per post target, one per prep hour
+// at the top of the range in routine.yml.
+export function weekFileText(week) {
+  let targets = {};
+  try { targets = parseYaml(fs.readFileSync(path.join(HUB_DATA, 'routine.yml'), 'utf8'))?.weekly_targets ?? {}; } catch { /* defaults */ }
+  const top = (t, d) => Math.max(1, Math.round(Number(t?.max ?? t?.min ?? t) || d));
+  const day = (iso, year) => new Date(`${iso}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', ...(year && { year: 'numeric' }) }).replace(',', '');
+  return [`# ${week.id} · ${day(week.start)} – ${day(week.end, true)}`, '',
+    '<!-- Messages and applications are counted from outreach.yml (contacted dates) and the',
+    '     career-ops tracker. Only the manual items below are ticked here. -->', '',
+    '## LinkedIn posts', ...Array.from({ length: top(targets.linkedin_posts, 1) }, (_, i) => `- [ ] Post ${i + 1}`), '',
+    '## Interview prep (1 box = 1 hour)', ...Array(top(targets.interview_prep_hours, 3)).fill('- [ ] 1h'), '',
+    '## Notes', ''].join('\n');
+}
+
 // "I posted on LinkedIn" / "did 2h of prep" from the panel (CLAUDE.md §12): tick the first
 // unticked box(es) in this week's section, adding lines when there aren't enough.
+// No file for this week yet → create it first (Undo then leaves it empty).
 export function weekTick({ kind, hours = 1, now = new Date() }) {
   const week = isoWeek(now);
   const file = path.join(HUB_DATA, 'weeks', `${week.id}.md`);
-  if (!fs.existsSync(file)) throw new Error(`No file for ${week.id} yet: ask Claude to "start a new week".`);
+  if (!fs.existsSync(file)) {
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, weekFileText(week));
+  }
   const before = fs.readFileSync(file, 'utf8');
   const lines = before.split('\n');
   const match = kind === 'post' ? (h) => h.includes('post') : (h) => h.includes('prep');

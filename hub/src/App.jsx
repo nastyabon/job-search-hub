@@ -450,7 +450,7 @@ function ThisWeek({ data }) {
   return (
     <section className="home-block">
       <h2 className="home-h">Targets <span className="count">{hit}/{progress.length} hit</span></h2>
-      {!week.fileExists && <p className="notice">No file for {week.id}: say "start a new week".</p>}
+      {!week.fileExists && <p className="muted small">New week: ticking a post or prep hour starts it. Say "start a new week" for last week's summary.</p>}
       <WeekBars data={data} onOpen={(p) => open({ kind: 'metric', key: p.key })} />
     </section>
   );

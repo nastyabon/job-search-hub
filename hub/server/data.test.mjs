@@ -69,3 +69,11 @@ test('sortFiltered keeps only filtered roles close to the job titles', () => {
   assert.deepEqual(out.location.map((j) => j.title), ['Product Designer']);
   assert.equal(out.hidden, 3);
 });
+
+test('a new week file has the §13 header and sections', async () => {
+  const { weekFileText } = await import('./actions.mjs');
+  const text = weekFileText(isoWeek(new Date(2026, 11, 30)));
+  assert.match(text, /^# 2026-W53 · Mon 28 Dec – Sun 3 Jan 2027\n/);
+  assert.match(text, /\n## LinkedIn posts\n- \[ \] Post 1\n/);
+  assert.match(text, /\n## Interview prep \(1 box = 1 hour\)\n(- \[ \] 1h\n)+\n## Notes\n$/);
+});
