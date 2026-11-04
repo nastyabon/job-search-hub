@@ -4,7 +4,7 @@ Your job search on one screen. You tell Claude what happened, and it keeps track
 
 **Not technical? Start here:** [the setup guide](https://imanabonda.notion.site/Job-Search-Hub-401d59d513f78062ab8afd18e945963e). It walks you through everything, no terminal needed.
 
-![The hub's home screen, with demo data]([SCREENSHOT])
+![The hub's home screen, with demo data](docs/home.png)
 
 ## What it does
 
