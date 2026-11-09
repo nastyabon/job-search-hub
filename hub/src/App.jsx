@@ -1575,7 +1575,8 @@ function panelContext(data, item) {
   // Everyone saved at this company, also when it isn't on the outreach list (they sit under Network).
   const people = allContacts(data).filter((p) => sameCo(p.company, name));
   const person = item.focus === 'person' ? allContacts(data).find((c) => c.name === item.ref) : null;
-  const notes = data.notes?.[noteSlug(name)] ?? [];
+  // Own keys only: a company called "Constructor" would otherwise get Object.prototype.constructor.
+  const notes = Object.hasOwn(data.notes ?? {}, noteSlug(name)) ? data.notes[noteSlug(name)] : [];
   return { company, apps, untracked, openings, people, person, notes, focus: item.focus, ref: item.ref, name };
 }
 
